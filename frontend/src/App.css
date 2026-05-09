@@ -96,7 +96,72 @@
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
 }
 
-/* form-row removed — budget and departure are now stacked individually */
+/* ── Autocomplete ────────────────────────────────────────── */
+
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-wrap input {
+  width: 100%;
+}
+
+.input-confirmed {
+  border-color: var(--uber-green) !important;
+  padding-right: 32px;
+}
+
+.confirmed-check {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--uber-green);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.suggestions li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.suggestions li:hover {
+  background: #f0f7ff;
+}
+
+.suggestion-pin {
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.suggestion-label {
+  font-size: 13px;
+  color: #111;
+  line-height: 1.4;
+}
 
 .input-prefix {
   display: flex;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import './App.css'
 
@@ -25,13 +25,91 @@ function decodePolyline(encoded) {
   return coords
 }
 
-async function geocode(query, token) {
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=CA&proximity=-79.38,43.65`
+async function fetchSuggestions(query, token) {
+  if (!query || query.length < 2) return []
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=CA&proximity=-79.38,43.65&limit=5`
   const res = await fetch(url)
   const data = await res.json()
-  if (!data.features?.length) throw new Error(`Could not find: "${query}"`)
-  const [lng, lat] = data.features[0].center
-  return { lat, lng }
+  return (data.features || []).map(f => ({
+    id: f.id,
+    label: f.place_name,
+    lat: f.center[1],
+    lng: f.center[0],
+  }))
+}
+
+function LocationInput({ id, label, placeholder, token, onSelect }) {
+  const [text, setText] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [confirmed, setConfirmed] = useState(null) // { label, lat, lng }
+  const [open, setOpen] = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef = useRef(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handle(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  function handleChange(e) {
+    const val = e.target.value
+    setText(val)
+    setConfirmed(null)
+    onSelect(null)
+    setOpen(true)
+
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      const results = await fetchSuggestions(val, token)
+      setSuggestions(results)
+    }, 300)
+  }
+
+  function handlePick(s) {
+    setText(s.label)
+    setConfirmed(s)
+    onSelect({ lat: s.lat, lng: s.lng })
+    setSuggestions([])
+    setOpen(false)
+  }
+
+  const showDropdown = open && suggestions.length > 0
+
+  return (
+    <div className="form-group" ref={wrapperRef}>
+      <label htmlFor={id}>{label}</label>
+      <div className="autocomplete-wrap">
+        <input
+          id={id}
+          type="text"
+          placeholder={placeholder}
+          value={text}
+          onChange={handleChange}
+          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          autoComplete="off"
+          className={confirmed ? 'input-confirmed' : ''}
+          required
+        />
+        {confirmed && <span className="confirmed-check">✓</span>}
+        {showDropdown && (
+          <ul className="suggestions">
+            {suggestions.map(s => (
+              <li key={s.id} onMouseDown={() => handlePick(s)}>
+                <span className="suggestion-pin">📍</span>
+                <span className="suggestion-label">{s.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function StepList({ steps }) {
@@ -42,7 +120,7 @@ function StepList({ steps }) {
         <div key={i} className={`step-item step-${step.mode.toLowerCase()}`}>
           {step.mode === 'TRANSIT' ? (
             <>
-              <div className="step-icon transit-icon">
+              <div className="step-icon">
                 {step.vehicle === 'Subway' ? '🚇' : step.vehicle === 'Bus' ? '🚌' : step.vehicle === 'Tram' ? '🚋' : '🚆'}
               </div>
               <div className="step-body">
@@ -56,7 +134,7 @@ function StepList({ steps }) {
             </>
           ) : (
             <>
-              <div className="step-icon walk-icon">🚶</div>
+              <div className="step-icon">🚶</div>
               <div className="step-body">
                 <div className="step-main">{step.instruction}</div>
                 <div className="step-detail">{step.distance} · {step.duration}</div>
@@ -75,8 +153,8 @@ export default function App() {
   const handoffMarker = useRef(null)
   const mapboxToken = useRef('')
 
-  const [originText, setOriginText] = useState('')
-  const [destText, setDestText] = useState('')
+  const [origin, setOrigin] = useState(null)       // { lat, lng } once confirmed
+  const [destination, setDestination] = useState(null)
   const [budget, setBudget] = useState('20')
   const [departureTime, setDepartureTime] = useState(() => {
     const d = new Date()
@@ -88,6 +166,7 @@ export default function App() {
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
   const [showSteps, setShowSteps] = useState(false)
+  const [tokenReady, setTokenReady] = useState(false)
 
   useEffect(() => {
     fetch('/api/config')
@@ -95,6 +174,7 @@ export default function App() {
       .then(cfg => {
         mapboxToken.current = cfg.mapboxToken
         mapboxgl.accessToken = cfg.mapboxToken
+        setTokenReady(true)
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v12',
@@ -135,22 +215,16 @@ export default function App() {
     clearRoutes()
     const m = map.current
     if (!m) return
-
     const transitCoords = decodePolyline(data.transitEncodedPolyline)
     addLine('transit-route', transitCoords, '#1a73e8')
     addLine('uber-route', data.uberPolylineGeojson.coordinates, '#00b300', true)
-
     const popup = new mapboxgl.Popup({ offset: 12 }).setText(`Handoff: ${data.handoffStop.name}`)
     handoffMarker.current = new mapboxgl.Marker({ color: '#f4511e' })
       .setLngLat([data.handoffStop.lng, data.handoffStop.lat])
       .setPopup(popup)
       .addTo(m)
-
     const allCoords = [...transitCoords, ...data.uberPolylineGeojson.coordinates]
-    const bounds = allCoords.reduce(
-      (b, c) => b.extend(c),
-      new mapboxgl.LngLatBounds(allCoords[0], allCoords[0])
-    )
+    const bounds = allCoords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]))
     m.fitBounds(bounds, { padding: 60, maxZoom: 14 })
   }
 
@@ -158,27 +232,23 @@ export default function App() {
     clearRoutes()
     const m = map.current
     if (!m) return
-
     const coords = decodePolyline(data.fullTransitEncodedPolyline)
     addLine('baseline-route', coords, '#1a73e8')
-
-    const bounds = coords.reduce(
-      (b, c) => b.extend(c),
-      new mapboxgl.LngLatBounds(coords[0], coords[0])
-    )
+    const bounds = coords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(coords[0], coords[0]))
     m.fitBounds(bounds, { padding: 60, maxZoom: 14 })
   }
 
   function doRender(data) {
-    if (data.transitFaster) {
-      renderBaselineRoute(data)
-    } else {
-      renderHybridRoutes(data)
-    }
+    if (data.transitFaster) renderBaselineRoute(data)
+    else renderHybridRoutes(data)
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!origin || !destination) {
+      setError('Please select a location from the dropdown for both fields.')
+      return
+    }
     setLoading(true)
     setError(null)
     setResult(null)
@@ -186,32 +256,16 @@ export default function App() {
     clearRoutes()
 
     try {
-      const token = mapboxToken.current
-      const [origin, destination] = await Promise.all([
-        geocode(originText, token),
-        geocode(destText, token),
-      ])
-
       const res = await fetch('/api/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin,
-          destination,
-          budget: parseFloat(budget),
-          departureTime,
-        }),
+        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime }),
       })
-
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Route calculation failed')
-
       setResult(data)
-      if (map.current.isStyleLoaded()) {
-        doRender(data)
-      } else {
-        map.current.once('load', () => doRender(data))
-      }
+      if (map.current.isStyleLoaded()) doRender(data)
+      else map.current.once('load', () => doRender(data))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -232,29 +286,24 @@ export default function App() {
         </div>
 
         <form className="route-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="origin">From</label>
-            <input
-              id="origin"
-              type="text"
-              placeholder="e.g. CN Tower, Toronto"
-              value={originText}
-              onChange={e => setOriginText(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="destination">To</label>
-            <input
-              id="destination"
-              type="text"
-              placeholder="e.g. York University"
-              value={destText}
-              onChange={e => setDestText(e.target.value)}
-              required
-            />
-          </div>
+          {tokenReady && (
+            <>
+              <LocationInput
+                id="origin"
+                label="From"
+                placeholder="e.g. CN Tower, Toronto"
+                token={mapboxToken.current}
+                onSelect={setOrigin}
+              />
+              <LocationInput
+                id="destination"
+                label="To"
+                placeholder="e.g. York University"
+                token={mapboxToken.current}
+                onSelect={setDestination}
+              />
+            </>
+          )}
 
           <div className="form-group">
             <label htmlFor="budget">Uber Budget</label>
@@ -306,11 +355,9 @@ export default function App() {
                 </div>
               </div>
             </div>
-
             <div className="gmaps-nudge">
               Open Google Maps and search for this route — look for the <strong>{result.fullTransitDurationMinutes}-minute</strong> transit option.
             </div>
-
             <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
               {showSteps ? 'Hide' : 'Show'} turn-by-turn directions
             </button>
