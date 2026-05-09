@@ -1,0 +1,474 @@
+:root {
+  --transit-blue: #1a73e8;
+  --uber-green: #00b300;
+  --handoff-orange: #f4511e;
+  --panel-width: 420px;
+  --radius: 10px;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+
+.app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--panel-width);
+  height: 100vh;
+  background: #fff;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.12);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+/* ── Panel header ────────────────────────────────────────── */
+
+.panel-header {
+  padding: 24px 24px 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 16px;
+}
+
+.logo {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 4px;
+  letter-spacing: -0.5px;
+}
+
+.tagline {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+/* ── Form ────────────────────────────────────────────────── */
+
+.route-form {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input {
+  padding: 9px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius);
+  font-size: 14px;
+  color: #111;
+  transition: border-color 0.2s;
+  outline: none;
+  background: #fff;
+}
+
+.form-group input:focus {
+  border-color: var(--transit-blue);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+
+/* form-row removed — budget and departure are now stacked individually */
+
+.input-prefix {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.input-prefix:focus-within {
+  border-color: var(--transit-blue);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+
+.input-prefix span {
+  padding: 9px 10px 9px 12px;
+  font-size: 14px;
+  color: #666;
+  background: #f8f8f8;
+  border-right: 1.5px solid #ddd;
+  user-select: none;
+}
+
+.input-prefix input {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+
+.input-prefix input:focus {
+  box-shadow: none;
+}
+
+/* ── Submit button ───────────────────────────────────────── */
+
+.submit-btn {
+  padding: 11px;
+  background: var(--transit-blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #1557b0;
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ── Spinner ─────────────────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner.large {
+  width: 36px;
+  height: 36px;
+  border-width: 4px;
+  border-color: rgba(26, 115, 232, 0.2);
+  border-top-color: var(--transit-blue);
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error box ───────────────────────────────────────────── */
+
+.error-box {
+  margin: 0 24px 16px;
+  padding: 12px 14px;
+  background: #fff5f5;
+  border: 1.5px solid #fca5a5;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+
+/* ── Results ─────────────────────────────────────────────── */
+
+.results {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.handoff-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: #fff8f6;
+  border: 1.5px solid #fdd0c4;
+  border-radius: var(--radius);
+}
+
+.handoff-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--handoff-orange);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px rgba(244, 81, 30, 0.2);
+}
+
+.handoff-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.handoff-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  line-height: 1.3;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat-card {
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1.5px solid #eee;
+  background: #fff;
+}
+
+.stat-card.transit { border-color: rgba(26, 115, 232, 0.3); background: rgba(26, 115, 232, 0.04); }
+.stat-card.uber    { border-color: rgba(0, 179, 0, 0.3);    background: rgba(0, 179, 0, 0.04);    }
+.stat-card.total   { border-color: #e0e0e0; background: #fafafa; }
+.stat-card.stops   { border-color: #e0e0e0; background: #fafafa; }
+.stat-card.saved   { border-color: rgba(0, 179, 0, 0.3); background: rgba(0, 179, 0, 0.04); }
+.stat-card.saved .stat-value { color: var(--uber-green); }
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-card.transit .stat-value { color: var(--transit-blue); }
+.stat-card.uber    .stat-value { color: var(--uber-green);   }
+
+.stat-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+/* ── Legend ──────────────────────────────────────────────── */
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  background: #f9f9f9;
+  border-radius: var(--radius);
+  border: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #444;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 28px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.transit-line { background: var(--transit-blue); }
+.uber-line    { background: repeating-linear-gradient(90deg, var(--uber-green) 0 8px, transparent 8px 14px); }
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--handoff-orange);
+  flex-shrink: 0;
+}
+
+/* ── Transit-faster banner ───────────────────────────────── */
+
+.transit-faster-banner {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: #f0f7ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: var(--radius);
+  align-items: flex-start;
+}
+
+.transit-faster-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.transit-faster-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 4px;
+}
+
+.transit-faster-body {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.gmaps-nudge {
+  padding: 12px 14px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* ── Steps toggle + step list ────────────────────────────── */
+
+.steps-toggle {
+  background: none;
+  border: 1.5px solid #ddd;
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  text-align: left;
+}
+
+.steps-toggle:hover {
+  border-color: var(--transit-blue);
+  color: var(--transit-blue);
+}
+
+.step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1.5px solid #eee;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.step-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: flex-start;
+}
+
+.step-item:last-child {
+  border-bottom: none;
+}
+
+.step-item.step-transit {
+  background: #f8fbff;
+}
+
+.step-item.step-walking {
+  background: #fff;
+}
+
+.step-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-main {
+  font-size: 13px;
+  color: #111;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.step-detail {
+  font-size: 12px;
+  color: #777;
+  line-height: 1.4;
+}
+
+/* ── Loading overlay ─────────────────────────────────────── */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.loading-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 48px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.loading-card p {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.loading-card small {
+  font-size: 13px;
+  color: #888;
+}
