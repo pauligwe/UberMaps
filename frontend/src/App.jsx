@@ -25,20 +25,48 @@ function decodePolyline(encoded) {
   return coords
 }
 
-async function fetchSuggestions(query, token) {
+async function fetchSuggestions(query, token, userLocation) {
   if (!query || query.length < 2) return []
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&country=CA&proximity=-79.38,43.65&limit=5`
-  const res = await fetch(url)
+  const params = new URLSearchParams({
+    q: query,
+    access_token: token,
+    limit: 5,
+    language: 'en',
+    types: 'address,poi,place,neighborhood',
+  })
+  if (userLocation) {
+    params.set('proximity', `${userLocation.lng},${userLocation.lat}`)
+    if (userLocation.country) params.set('country', userLocation.country)
+  }
+  const sessionToken = crypto.randomUUID()
+  const res = await fetch(
+    `https://api.mapbox.com/search/searchbox/v1/suggest?${params}&session_token=${sessionToken}`
+  )
   const data = await res.json()
-  return (data.features || []).map(f => ({
-    id: f.id,
-    label: f.place_name,
-    lat: f.center[1],
-    lng: f.center[0],
-  }))
+  const suggestions = data.suggestions || []
+
+  // Retrieve full coordinates for each suggestion
+  const results = await Promise.all(
+    suggestions.map(async s => {
+      const r = await fetch(
+        `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapbox_id}?access_token=${token}&session_token=${sessionToken}`
+      )
+      const d = await r.json()
+      const feature = d.features?.[0]
+      if (!feature) return null
+      const [lng, lat] = feature.geometry.coordinates
+      return {
+        id: s.mapbox_id,
+        label: [s.name, s.place_formatted].filter(Boolean).join(', '),
+        lat,
+        lng,
+      }
+    })
+  )
+  return results.filter(Boolean)
 }
 
-function LocationInput({ id, label, placeholder, token, onSelect, defaultValue }) {
+function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation }) {
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [confirmed, setConfirmed] = useState(null)
@@ -74,7 +102,7 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue }
 
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
-      const results = await fetchSuggestions(val, token)
+      const results = await fetchSuggestions(val, token, userLocation)
       setSuggestions(results)
     }, 300)
   }
@@ -229,6 +257,7 @@ export default function App() {
   const [showSteps, setShowSteps] = useState(false)
   const [tokenReady, setTokenReady] = useState(false)
   const [defaultOrigin, setDefaultOrigin] = useState(null)
+  const [userLocation, setUserLocation] = useState(null)
 
   // Mobile bottom sheet
   const sheetRef = useRef(null)
@@ -266,13 +295,26 @@ export default function App() {
           style: 'mapbox://styles/mapbox/dark-v11',
           center: [-79.38, 43.65],
           zoom: 11,
+          attributionControl: false,
         })
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
+
+        // IP-based location fallback, used for search bias until GPS resolves
+        fetch('https://ipapi.co/json/')
+          .then(r => r.json())
+          .then(ip => {
+            if (ip.latitude && ip.longitude) {
+              setUserLocation(loc => loc ?? { lat: ip.latitude, lng: ip.longitude, country: ip.country_code?.toLowerCase() })
+            }
+          })
+          .catch(() => {})
 
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(async pos => {
             const { latitude, longitude } = pos.coords
             map.current.setCenter([longitude, latitude])
+            // GPS is more accurate — always override IP location
+            setUserLocation({ lat: latitude, lng: longitude })
             const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${cfg.mapboxToken}&limit=1`
             const res = await fetch(url)
             const data = await res.json()
@@ -546,6 +588,7 @@ export default function App() {
               token={mapboxToken.current}
               onSelect={setOrigin}
               defaultValue={defaultOrigin}
+              userLocation={userLocation}
             />
             <LocationInput
               id="destination-m"
@@ -553,6 +596,7 @@ export default function App() {
               placeholder="e.g. York University"
               token={mapboxToken.current}
               onSelect={setDestination}
+              userLocation={userLocation}
             />
           </>
         )}
@@ -606,8 +650,10 @@ export default function App() {
       {/* ── Desktop panel (unchanged layout) ── */}
       <div className="panel desktop-panel">
         <div className="panel-header">
-          <h1 className="logo">UberMaps</h1>
-          <p className="tagline">Transit to the handoff, Uber the rest.</p>
+          <div className="logo-row">
+            <img src="/logo.png" alt="" className="logo-img" />
+            <h1 className="logo">UberMaps</h1>
+          </div>
         </div>
 
         <form className="route-form" onSubmit={handleSubmit}>
@@ -620,6 +666,7 @@ export default function App() {
                 token={mapboxToken.current}
                 onSelect={setOrigin}
                 defaultValue={defaultOrigin}
+                userLocation={userLocation}
               />
               <LocationInput
                 id="destination"
@@ -627,6 +674,7 @@ export default function App() {
                 placeholder="e.g. York University"
                 token={mapboxToken.current}
                 onSelect={setDestination}
+                userLocation={userLocation}
               />
             </>
           )}

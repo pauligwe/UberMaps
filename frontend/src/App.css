@@ -68,12 +68,24 @@
 .logo {
   font-size: 28px;
   font-weight: 700;
-  margin: 0 0 4px;
+  margin: 0;
   letter-spacing: -0.5px;
   background: linear-gradient(135deg, #f0f0f0 30%, #888 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 
 .tagline {
@@ -836,7 +848,9 @@
     inset: 0;
   }
 
-  .mapboxgl-ctrl-group {
+  .mapboxgl-ctrl-group,
+  .mapboxgl-ctrl-attrib,
+  .mapboxgl-ctrl-logo {
     display: none !important;
   }
 
