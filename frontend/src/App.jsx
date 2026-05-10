@@ -112,23 +112,39 @@ function LocationInput({ id, label, placeholder, token, onSelect }) {
   )
 }
 
-function StepList({ steps }) {
+function vehicleIcon(vehicle) {
+  if (vehicle === 'Subway') return '🚇'
+  if (vehicle === 'Bus') return '🚌'
+  if (vehicle === 'Tram' || vehicle === 'Light rail') return '🚋'
+  if (vehicle === 'Train' || vehicle === 'Commuter train') return '🚆'
+  return '🚌'
+}
+
+function StepList({ steps, departureTime, arrivalTime }) {
   if (!steps?.length) return null
   return (
     <div className="step-list">
+      {(departureTime || arrivalTime) && (
+        <div className="step-times-header">
+          {departureTime && <span>Departs <strong>{departureTime}</strong></span>}
+          {departureTime && arrivalTime && <span className="step-times-sep">→</span>}
+          {arrivalTime && <span>Arrives <strong>{arrivalTime}</strong></span>}
+        </div>
+      )}
       {steps.map((step, i) => (
         <div key={i} className={`step-item step-${step.mode.toLowerCase()}`}>
           {step.mode === 'TRANSIT' ? (
             <>
-              <div className="step-icon">
-                {step.vehicle === 'Subway' ? '🚇' : step.vehicle === 'Bus' ? '🚌' : step.vehicle === 'Tram' ? '🚋' : '🚆'}
-              </div>
+              <div className="step-icon">{vehicleIcon(step.vehicle)}</div>
               <div className="step-body">
                 <div className="step-main">
-                  Take <strong>{step.vehicle} {step.line}</strong> from <strong>{step.departureStop}</strong>
+                  <strong>{step.departureTime}</strong> — Board {step.vehicle} <strong>{step.line}</strong> at <strong>{step.departureStop}</strong>
+                </div>
+                <div className="step-main step-headsign">
+                  Direction: {step.headsign}
                 </div>
                 <div className="step-detail">
-                  Get off at <strong>{step.arrivalStop}</strong> · {step.numStops} stop{step.numStops !== 1 ? 's' : ''} · {step.duration}
+                  Get off at <strong>{step.arrivalStop}</strong> ({step.arrivalTime}) · {step.numStops} stop{step.numStops !== 1 ? 's' : ''} · {step.duration}
                 </div>
               </div>
             </>
@@ -361,7 +377,13 @@ export default function App() {
             <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
               {showSteps ? 'Hide' : 'Show'} turn-by-turn directions
             </button>
-            {showSteps && <StepList steps={result.fullTransitSteps} />}
+            {showSteps && (
+              <StepList
+                steps={result.fullTransitSteps}
+                departureTime={result.fullTransitDepartureTime}
+                arrivalTime={result.fullTransitArrivalTime}
+              />
+            )}
           </div>
         )}
 
@@ -378,28 +400,43 @@ export default function App() {
             <div className="stat-grid">
               <div className="stat-card transit">
                 <div className="stat-value">{result.transitDurationMinutes} min</div>
-                <div className="stat-label">Transit leg</div>
+                <div className="stat-label">Transit time</div>
               </div>
-              <div className="stat-card uber">
+              <div className="stat-card uber-time">
+                <div className="stat-value">{result.uberDurationMinutes} min</div>
+                <div className="stat-label">Uber time</div>
+              </div>
+              <div className="stat-card uber-cost">
                 <div className="stat-value">${result.estimatedUberCost.toFixed(2)}</div>
-                <div className="stat-label">Uber est.</div>
+                <div className="stat-label">Uber cost</div>
               </div>
-              <div className="stat-card total">
-                <div className="stat-value">{result.totalDurationMinutes} min</div>
-                <div className="stat-label">Total time</div>
-              </div>
-              {result.fullTransitDurationMinutes && (
-                <div className="stat-card saved">
-                  <div className="stat-value">{result.fullTransitDurationMinutes - result.totalDurationMinutes} min</div>
-                  <div className="stat-label">Time saved</div>
+              {result.fullTransitArrivalTime && (
+                <div className="stat-card full-transit-arrival">
+                  <div className="stat-value">{result.fullTransitArrivalTime}</div>
+                  <div className="stat-label">Transit arrives</div>
                 </div>
               )}
+              <div className="stat-card hybrid-arrival">
+                {result.minutesEarlier > 0 && (
+                  <div className="stat-faster-badge">
+                    {result.minutesEarlier} min earlier
+                  </div>
+                )}
+                <div className="stat-value">{result.hybridArrivalTime}</div>
+                <div className="stat-label">Hybrid arrives</div>
+              </div>
             </div>
 
             <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
               {showSteps ? 'Hide' : 'Show'} transit directions
             </button>
-            {showSteps && <StepList steps={steps} />}
+            {showSteps && (
+              <StepList
+                steps={steps}
+                departureTime={result.transitDepartureTime}
+                arrivalTime={result.transitArrivalTime}
+              />
+            )}
 
             <div className="legend">
               <div className="legend-item">

@@ -314,8 +314,14 @@
 
 .stat-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
+}
+
+/* arrival cards span full width on their row */
+.stat-card.full-transit-arrival,
+.stat-card.hybrid-arrival {
+  grid-column: span 1;
 }
 
 .stat-card {
@@ -325,23 +331,35 @@
   background: #fff;
 }
 
-.stat-card.transit { border-color: rgba(26, 115, 232, 0.3); background: rgba(26, 115, 232, 0.04); }
-.stat-card.uber    { border-color: rgba(0, 179, 0, 0.3);    background: rgba(0, 179, 0, 0.04);    }
-.stat-card.total   { border-color: #e0e0e0; background: #fafafa; }
-.stat-card.stops   { border-color: #e0e0e0; background: #fafafa; }
-.stat-card.saved   { border-color: rgba(0, 179, 0, 0.3); background: rgba(0, 179, 0, 0.04); }
-.stat-card.saved .stat-value { color: var(--uber-green); }
+.stat-card.transit             { border-color: rgba(26, 115, 232, 0.3); background: rgba(26, 115, 232, 0.04); }
+.stat-card.transit .stat-value { color: var(--transit-blue); }
+.stat-card.uber-time           { border-color: rgba(0, 179, 0, 0.3); background: rgba(0, 179, 0, 0.04); }
+.stat-card.uber-time .stat-value { color: var(--uber-green); }
+.stat-card.uber-cost           { border-color: rgba(0, 179, 0, 0.3); background: rgba(0, 179, 0, 0.04); }
+.stat-card.uber-cost .stat-value { color: var(--uber-green); }
+.stat-card.full-transit-arrival { border-color: #e0e0e0; background: #fafafa; }
+.stat-card.hybrid-arrival      { border-color: rgba(244, 81, 30, 0.3); background: rgba(244, 81, 30, 0.04); position: relative; }
+.stat-card.hybrid-arrival .stat-value { color: var(--handoff-orange); }
+
+.stat-faster-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--handoff-orange);
+  border-radius: 20px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
 
 .stat-value {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #111;
   line-height: 1;
   margin-bottom: 4px;
 }
-
-.stat-card.transit .stat-value { color: var(--transit-blue); }
-.stat-card.uber    .stat-value { color: var(--uber-green);   }
 
 .stat-label {
   font-size: 11px;
@@ -493,11 +511,32 @@
   min-width: 0;
 }
 
+.step-times-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f0f7ff;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+  color: #374151;
+}
+
+.step-times-sep {
+  color: #9ca3af;
+}
+
 .step-main {
   font-size: 13px;
   color: #111;
   line-height: 1.4;
   margin-bottom: 2px;
+}
+
+.step-headsign {
+  color: #555;
+  font-size: 12px;
+  margin-bottom: 3px;
 }
 
 .step-detail {

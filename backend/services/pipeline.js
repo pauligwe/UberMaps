@@ -42,10 +42,10 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   // Step 4: Transit validation — parallel Google Directions calls
   const transitResults = await Promise.allSettled(
     survivingStops.map(async (stop) => {
-      const { durationMin, encodedPolyline, steps } = await getTransitTime(
+      const { durationMin, departureTime: depTime, arrivalTime: arrTime, arrivalUnix, encodedPolyline, steps } = await getTransitTime(
         origin.lat, origin.lng, stop.lat, stop.lng, departureTime
       );
-      return { ...stop, transitDurationMin: durationMin, encodedPolyline, steps };
+      return { ...stop, transitDurationMin: durationMin, transitDepartureTime: depTime, transitArrivalTime: arrTime, transitArrivalUnix: arrivalUnix, encodedPolyline, steps };
     })
   );
 
@@ -57,17 +57,30 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
     throw new Error('Google Directions returned no valid transit routes to any candidate stop');
   }
 
-  // Step 5: Pick winner — fastest transit time
-  validatedStops.sort((a, b) => a.transitDurationMin - b.transitDurationMin);
+  // Step 5: Pick winner — earliest arrival at destination (transit arrival + uber drive time)
+  validatedStops.sort((a, b) =>
+    (a.transitArrivalUnix + Math.ceil(a.uberDurationMin) * 60) -
+    (b.transitArrivalUnix + Math.ceil(b.uberDurationMin) * 60)
+  );
   const winner = validatedStops[0];
 
-  const hybridTotal = winner.transitDurationMin + Math.ceil(winner.uberDurationMin);
+  const uberDurationMinutes = Math.ceil(winner.uberDurationMin);
+  const hybridTotal = winner.transitDurationMin + uberDurationMinutes;
 
-  // If full transit is faster than our best hybrid, tell the user
-  if (baselineTransit && baselineTransit.durationMin <= hybridTotal) {
+  // Hybrid arrival = when transit drops you at handoff stop + uber drive time
+  const hybridArrivalUnix = winner.transitArrivalUnix + uberDurationMinutes * 60;
+  const hybridArrivalTime = new Date(hybridArrivalUnix * 1000).toLocaleTimeString('en-CA', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Toronto',
+  });
+
+  // Compare arrival times using Unix timestamps (not durations)
+  const baselineArrivalUnix = baselineTransit?.arrivalUnix ?? null;
+  if (baselineArrivalUnix && baselineArrivalUnix <= hybridArrivalUnix) {
     return {
       transitFaster: true,
       fullTransitDurationMinutes: baselineTransit.durationMin,
+      fullTransitDepartureTime: baselineTransit.departureTime,
+      fullTransitArrivalTime: baselineTransit.arrivalTime,
       fullTransitSteps: baselineTransit.steps,
       fullTransitEncodedPolyline: baselineTransit.encodedPolyline,
       hybridTotalMinutes: hybridTotal,
@@ -84,14 +97,21 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
     handoffStop: { name: winner.name, lat: winner.lat, lng: winner.lng },
     estimatedUberCost: Math.round(winner.estimatedFare * 100) / 100,
     transitDurationMinutes: winner.transitDurationMin,
+    uberDurationMinutes,
+    transitDepartureTime: winner.transitDepartureTime,
+    transitArrivalTime: winner.transitArrivalTime,
+    hybridArrivalTime,
     totalDurationMinutes: hybridTotal,
     stopsConsidered,
     stopsAfterFareFilter,
     transitSteps: winner.steps,
     transitEncodedPolyline: winner.encodedPolyline,
     uberPolylineGeojson,
-    // Include baseline for reference even when hybrid wins
     fullTransitDurationMinutes: baselineTransit?.durationMin ?? null,
+    fullTransitArrivalTime: baselineTransit?.arrivalTime ?? null,
+    minutesEarlier: baselineArrivalUnix
+      ? Math.round((baselineArrivalUnix - hybridArrivalUnix) / 60)
+      : null,
   };
 }
 
