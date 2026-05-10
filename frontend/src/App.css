@@ -474,9 +474,9 @@
 
 .tooltip-text {
   display: none;
-  position: absolute;
-  bottom: calc(100% + 6px);
-  right: 0;
+  position: fixed;
+  bottom: auto;
+  right: 8px;
   left: auto;
   transform: none;
   background: #222;
@@ -489,8 +489,9 @@
   padding: 6px 9px;
   border-radius: 6px;
   width: 200px;
+  max-width: calc(100vw - 16px);
   pointer-events: none;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .tooltip-wrap:hover .tooltip-text {

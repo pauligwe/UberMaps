@@ -440,6 +440,8 @@ export default function App() {
       const handoffAddr = data.handoffStop?.fullAddress || data.handoffStop?.name || ''
       data.appleMapsLink = `maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(handoffAddr)}&dirflg=r`
       data.googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(handoffAddr)}&travelmode=transit`
+      data.fullTransitAppleMapsLink = `maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(destination.label)}&dirflg=r`
+      data.fullTransitGoogleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(destination.label)}&travelmode=transit`
       setResult(data)
       setSheetSnap('mid')
       if (map.current.isStyleLoaded()) doRender(data)
@@ -486,8 +488,13 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="gmaps-nudge">
-            Open Google Maps and search for this route, look for the <strong>{result.fullTransitDurationMinutes} minute</strong> option.
+          <div className="handoff-maps-row">
+            <a className="open-maps-btn" href={result.fullTransitAppleMapsLink} target="_blank" rel="noopener noreferrer">
+              Apple Maps
+            </a>
+            <a className="open-maps-btn" href={result.fullTransitGoogleMapsLink} target="_blank" rel="noopener noreferrer">
+              Google Maps
+            </a>
           </div>
           <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
             {showSteps ? 'Hide' : 'Show'} directions
@@ -534,20 +541,20 @@ export default function App() {
                 <span className="tooltip-icon">?</span>
                 <span className="tooltip-text">All costs are estimates based on typical Uber pricing and may not reflect actual fares.</span>
               </span>
-              <div className="stat-value">${Math.ceil(result.estimatedUberCost)}</div>
+              <div className="stat-value">${result.estimatedUberCost.toFixed(2)}</div>
               <div className="stat-label">Cost estimate</div>
             </div>
             {result.fullTransitArrivalTime && (
               <div className="stat-card full-transit-arrival">
                 <div className="stat-value">{result.fullTransitArrivalTime}</div>
-                <div className="stat-label">Transit arrives</div>
+                <div className="stat-label">BY TRANSIT ONLY</div>
               </div>
             )}
             <div className="stat-card hybrid-arrival stat-card--wide">
               <div className="hybrid-arrival-inner">
                 <div>
                   <div className="stat-value">{result.hybridArrivalTime}</div>
-                  <div className="stat-label">Hybrid arrives</div>
+                  <div className="stat-label">WITH UBERMAPS</div>
                 </div>
                 {result.minutesEarlier > 0 && (
                   <div className="stat-faster-badge">
