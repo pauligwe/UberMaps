@@ -96,7 +96,7 @@ function LocationInput({ id, label, placeholder, token, onSelect }) {
           className={confirmed ? 'input-confirmed' : ''}
           required
         />
-        {confirmed && <span className="confirmed-check">✓</span>}
+
         {showDropdown && (
           <ul className="suggestions">
             {suggestions.map(s => (
@@ -193,7 +193,7 @@ export default function App() {
         setTokenReady(true)
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
+          style: 'mapbox://styles/mapbox/dark-v11',
           center: [-79.38, 43.65],
           zoom: 11,
         })
@@ -257,12 +257,13 @@ export default function App() {
       allCoords.push(...coords)
     }
 
-    addLine('uber-route', data.uberPolylineGeojson.coordinates, '#00b300', true)
+    addLine('uber-route', data.uberPolylineGeojson.coordinates, '#16a34a', true)
     allCoords.push(...data.uberPolylineGeojson.coordinates)
 
     const popup = new mapboxgl.Popup({ offset: 12 }).setText(`Call Uber here: ${data.handoffStop.fullAddress || data.handoffStop.name}`)
     const el = document.createElement('div')
-    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#f4511e;border:3px solid #fff;box-shadow:0 0 0 2px #f4511e,0 2px 6px rgba(0,0,0,0.4);cursor:pointer;'
+    el.className = 'handoff-pulse'
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#f4511e;border:3px solid #0d0d0d;cursor:pointer;'
     handoffMarker.current = new mapboxgl.Marker({ element: el })
       .setLngLat([data.handoffStop.lng, data.handoffStop.lat])
       .setPopup(popup)
@@ -309,6 +310,9 @@ export default function App() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Route calculation failed')
+      const handoffAddr = data.handoffStop?.fullAddress || data.handoffStop?.name || ''
+      data.appleMapsLink = `maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(handoffAddr)}&dirflg=r`
+      data.googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(handoffAddr)}&travelmode=transit`
       setResult(data)
       if (map.current.isStyleLoaded()) doRender(data)
       else map.current.once('load', () => doRender(data))
@@ -389,15 +393,24 @@ export default function App() {
           </div>
         )}
 
-        {result?.transitFaster && (
+        {loading && (
+          <div className="panel-skeleton">
+            <div className="skeleton-line" style={{ width: '55%' }} />
+            <div className="skeleton-line" style={{ width: '100%', height: '80px' }} />
+            <div className="skeleton-line" style={{ width: '100%', height: '120px' }} />
+            <div className="skeleton-line" style={{ width: '40%' }} />
+          </div>
+        )}
+
+        {!loading && result?.transitFaster && (
           <div className="results">
             <div className="transit-faster-banner">
               <div className="transit-faster-icon">🚌</div>
               <div>
                 <div className="transit-faster-title">Transit is already faster</div>
                 <div className="transit-faster-body">
-                  The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong> — faster than the best
-                  transit + Uber hybrid ({result.hybridTotalMinutes} min). No Uber needed.
+                  The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong> — the best
+                  transit + Uber hybrid takes ({result.hybridTotalMinutes} min). No Uber needed.
                 </div>
               </div>
             </div>
@@ -417,7 +430,7 @@ export default function App() {
           </div>
         )}
 
-        {result && !result.transitFaster && (
+        {!loading && result && !result.transitFaster && (
           <div className="results">
             <div className="handoff-banner">
               <span className="handoff-dot" />
@@ -427,7 +440,7 @@ export default function App() {
                 <div className="handoff-maps-row">
                   <a
                     className="open-maps-btn"
-                    href={`maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(result.handoffStop.fullAddress || result.handoffStop.name)}&dirflg=r`}
+                    href={result.appleMapsLink}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -435,7 +448,7 @@ export default function App() {
                   </a>
                   <a
                     className="open-maps-btn"
-                    href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(result.handoffStop.fullAddress || result.handoffStop.name)}&travelmode=transit`}
+                    href={result.googleMapsLink}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -464,14 +477,18 @@ export default function App() {
                   <div className="stat-label">Transit arrives</div>
                 </div>
               )}
-              <div className="stat-card hybrid-arrival">
-                {result.minutesEarlier > 0 && (
-                  <div className="stat-faster-badge">
-                    {result.minutesEarlier} min earlier
+              <div className="stat-card hybrid-arrival stat-card--wide">
+                <div className="hybrid-arrival-inner">
+                  <div>
+                    <div className="stat-value">{result.hybridArrivalTime}</div>
+                    <div className="stat-label">Hybrid arrives</div>
                   </div>
-                )}
-                <div className="stat-value">{result.hybridArrivalTime}</div>
-                <div className="stat-label">Hybrid arrives</div>
+                  {result.minutesEarlier > 0 && (
+                    <div className="stat-faster-badge">
+                      {result.minutesEarlier} min earlier
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -486,37 +503,10 @@ export default function App() {
               />
             )}
 
-            <div className="legend">
-              <div className="legend-item">
-                <span className="legend-line transit-line" />
-                Bus / train leg
-              </div>
-              <div className="legend-item">
-                <span className="legend-line walking-line" />
-                Walking leg
-              </div>
-              <div className="legend-item">
-                <span className="legend-line uber-line" />
-                Uber to destination
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot" />
-                Call Uber here
-              </div>
-            </div>
           </div>
         )}
       </div>
 
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-card">
-            <div className="spinner large" />
-            <p>Finding optimal route…</p>
-            <small>Checking stops near destination</small>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

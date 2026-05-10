@@ -4,8 +4,14 @@
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: #0d0d0d;
+  color: #f0f0f0;
+}
+
+html, body {
+  height: 100%;
 }
 
 #root {
