@@ -25,6 +25,14 @@ function decodePolyline(encoded) {
   return coords
 }
 
+const CITIES = {
+  toronto: { label: 'Toronto', center: [-79.38, 43.65], zoom: 11, placeholder: 'e.g. CN Tower, Toronto' },
+  vaughan: { label: 'Vaughan', center: [-79.54, 43.84], zoom: 12, placeholder: 'e.g. Vaughan Mills, Vaughan' },
+  sf:      { label: 'San Francisco', center: [-122.4194, 37.7749], zoom: 12, placeholder: 'e.g. Golden Gate Bridge, SF' },
+  nyc:     { label: 'New York City', center: [-74.006, 40.7128], zoom: 12, placeholder: 'e.g. Times Square, NYC' },
+  la:      { label: 'Los Angeles', center: [-118.2437, 34.0522], zoom: 11, placeholder: 'e.g. Hollywood Sign, LA' },
+}
+
 const suggestCache = new Map() // key -> { results, ts }
 const SUGGEST_CACHE_TTL = 60_000
 
@@ -266,6 +274,7 @@ export default function App() {
   const handoffMarker = useRef(null)
   const mapboxToken = useRef('')
 
+  const [selectedCity, setSelectedCity] = useState('toronto')
   const [origin, setOrigin] = useState(null)       // { lat, lng } once confirmed
   const [destination, setDestination] = useState(null)
   const [budget, setBudget] = useState('20')
@@ -456,7 +465,7 @@ export default function App() {
       const res = await fetch('/api/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime }),
+        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime, city: selectedCity }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Route calculation failed')
@@ -612,12 +621,27 @@ export default function App() {
 
       {/* ── Mobile top bar (inputs only, no header) ── */}
       <div className="mobile-top-bar">
+        <div className="city-pills">
+          {Object.entries(CITIES).map(([key, city]) => (
+            <button
+              key={key}
+              type="button"
+              className={`city-pill${selectedCity === key ? ' city-pill--active' : ''}`}
+              onClick={() => {
+                setSelectedCity(key)
+                if (map.current) map.current.flyTo({ center: city.center, zoom: city.zoom })
+              }}
+            >
+              {city.label}
+            </button>
+          ))}
+        </div>
         {tokenReady && (
           <>
             <LocationInput
               id="origin-m"
               label="From"
-              placeholder="e.g. CN Tower, Toronto"
+              placeholder={CITIES[selectedCity].placeholder}
               token={mapboxToken.current}
               onSelect={setOrigin}
               defaultValue={defaultOrigin}
@@ -626,7 +650,7 @@ export default function App() {
             <LocationInput
               id="destination-m"
               label="To"
-              placeholder="e.g. York University"
+              placeholder={`e.g. destination in ${CITIES[selectedCity].label}`}
               token={mapboxToken.current}
               onSelect={setDestination}
               userLocation={userLocation}
@@ -687,6 +711,21 @@ export default function App() {
             <img src="/logo.png" alt="" className="logo-img" />
             <h1 className="logo">UberMaps</h1>
           </div>
+          <div className="city-pills">
+            {Object.entries(CITIES).map(([key, city]) => (
+              <button
+                key={key}
+                type="button"
+                className={`city-pill${selectedCity === key ? ' city-pill--active' : ''}`}
+                onClick={() => {
+                  setSelectedCity(key)
+                  if (map.current) map.current.flyTo({ center: city.center, zoom: city.zoom })
+                }}
+              >
+                {city.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <form className="route-form" onSubmit={handleSubmit}>
@@ -695,7 +734,7 @@ export default function App() {
               <LocationInput
                 id="origin"
                 label="From"
-                placeholder="e.g. CN Tower, Toronto"
+                placeholder={CITIES[selectedCity].placeholder}
                 token={mapboxToken.current}
                 onSelect={setOrigin}
                 defaultValue={defaultOrigin}
@@ -704,7 +743,7 @@ export default function App() {
               <LocationInput
                 id="destination"
                 label="To"
-                placeholder="e.g. York University"
+                placeholder={`e.g. destination in ${CITIES[selectedCity].label}`}
                 token={mapboxToken.current}
                 onSelect={setDestination}
                 userLocation={userLocation}

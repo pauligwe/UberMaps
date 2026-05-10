@@ -95,6 +95,37 @@
   line-height: 1.4;
 }
 
+.city-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.city-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.city-pill:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+.city-pill--active {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+  color: #fff;
+}
+
 /* ── Form ────────────────────────────────────────────────── */
 
 .route-form {
@@ -787,6 +818,18 @@
     padding: 12px 14px 14px;
     box-shadow: 0 2px 16px rgba(0,0,0,0.5);
     /* no border-radius — flush top */
+  }
+
+  .mobile-top-bar .city-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-top: 0;
+  }
+
+  .mobile-top-bar .city-pills::-webkit-scrollbar {
+    display: none;
   }
 
   .mobile-top-bar .form-group {

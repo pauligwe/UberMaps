@@ -2,15 +2,17 @@ const { maxRadiusKm, estimateFare } = require('./fareEstimate');
 const { fetchStops } = require('./overpass');
 const { getRoadDistanceAndDuration, getOsrmPolyline } = require('./osrm');
 const { getTransitTime, getFullTransitRoute } = require('./google');
+const { CITIES, DEFAULT_CITY } = require('./cities');
 
 const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
 const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
 const MAX_CANDIDATES = 30; // cap on Google Directions calls after OSRM filter
 
-async function runPipeline({ origin, destination, budget, departureTime }) {
+async function runPipeline({ origin, destination, budget, departureTime, city = DEFAULT_CITY }) {
+  const cityConfig = CITIES[city] ?? CITIES[DEFAULT_CITY];
   // Step 1: Radius calculation
-  const radiusKm = maxRadiusKm(budget);
-  if (radiusKm <= 0) throw new Error('Budget is below minimum fare ($3.50)');
+  const radiusKm = maxRadiusKm(budget, city);
+  if (radiusKm <= 0) throw new Error(`Budget is below minimum fare ($${cityConfig.fare.base.toFixed(2)})`);
   const radiusMeters = radiusKm * 1000;
 
   // Steps 2 + baseline run in parallel — baseline doesn't block stop discovery
@@ -30,7 +32,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
       const { distanceKm, durationMin } = await getRoadDistanceAndDuration(
         stop.lat, stop.lng, destination.lat, destination.lng
       );
-      const fare = estimateFare(distanceKm, durationMin, departureTime);
+      const fare = estimateFare(distanceKm, durationMin, departureTime, city);
       if (fare > budget) return null;
       // Skip stops too close to destination — walkable distance, no point calling an Uber
       if (distanceKm < MIN_UBER_DISTANCE_KM) return null;
@@ -111,7 +113,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   // Hybrid arrival = when transit drops you at handoff stop + uber drive time
   const hybridArrivalUnix = winner.transitArrivalUnix + uberDurationMinutes * 60;
   const hybridArrivalTime = new Date(hybridArrivalUnix * 1000).toLocaleTimeString('en-CA', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Toronto',
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: cityConfig.timezone,
   });
 
   // Compare arrival times using Unix timestamps (not durations)

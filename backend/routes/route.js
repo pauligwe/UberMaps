@@ -6,7 +6,7 @@ const router = express.Router();
 const USER_FACING_PHRASES = ['Budget is below', 'No transit stops', 'No stops found', 'minimum fare', 'Overpass timeout', 'rate limit'];
 
 router.post('/', async (req, res) => {
-  const { origin, destination, budget, departureTime } = req.body;
+  const { origin, destination, budget, departureTime, city } = req.body;
 
   // Input validation
   if (!origin || !destination || budget == null || !departureTime) {
@@ -24,7 +24,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const result = await runPipeline({ origin, destination, budget, departureTime });
+    const result = await runPipeline({ origin, destination, budget, departureTime, city });
     res.json(result);
   } catch (err) {
     const isUserError = USER_FACING_PHRASES.some((p) => err.message.includes(p));

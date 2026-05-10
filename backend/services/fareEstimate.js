@@ -1,7 +1,5 @@
-// Toronto Uber fare rates
-const BASE_FARE = 3.50;
-const PER_KM_RATE = 1.75;
-const PER_MIN_RATE = 0.35;
+const { CITIES, DEFAULT_CITY } = require('./cities.js');
+
 // Road distance is ~1.4x straight-line; invert to get straight-line from road km
 const ROAD_TO_STRAIGHT_LINE_FACTOR = 1.4;
 
@@ -27,15 +25,17 @@ function getSurgeMultiplier(departureTimeISO) {
   return 1.0;
 }
 
-function estimateFare(roadKm, durationMin, departureTimeISO) {
+function estimateFare(roadKm, durationMin, departureTimeISO, city = DEFAULT_CITY) {
+  const { fare } = CITIES[city] ?? CITIES[DEFAULT_CITY];
   const surge = getSurgeMultiplier(departureTimeISO);
-  const raw = BASE_FARE + (roadKm * PER_KM_RATE) + (durationMin * PER_MIN_RATE);
+  const raw = fare.base + (roadKm * fare.perKm) + (durationMin * fare.perMin);
   return raw * surge;
 }
 
-function maxRadiusKm(budget) {
-  if (budget < BASE_FARE) return 0;
-  const maxRoadKm = (budget - BASE_FARE) / PER_KM_RATE;
+function maxRadiusKm(budget, city = DEFAULT_CITY) {
+  const { fare } = CITIES[city] ?? CITIES[DEFAULT_CITY];
+  if (budget < fare.base) return 0;
+  const maxRoadKm = (budget - fare.base) / fare.perKm;
   return maxRoadKm / ROAD_TO_STRAIGHT_LINE_FACTOR;
 }
 
