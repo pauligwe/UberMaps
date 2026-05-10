@@ -38,13 +38,21 @@ async function fetchSuggestions(query, token) {
   }))
 }
 
-function LocationInput({ id, label, placeholder, token, onSelect }) {
+function LocationInput({ id, label, placeholder, token, onSelect, defaultValue }) {
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])
-  const [confirmed, setConfirmed] = useState(null) // { label, lat, lng }
+  const [confirmed, setConfirmed] = useState(null)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef(null)
   const wrapperRef = useRef(null)
+
+  useEffect(() => {
+    if (defaultValue) {
+      setText(defaultValue.label)
+      setConfirmed(defaultValue)
+      onSelect({ lat: defaultValue.lat, lng: defaultValue.lng, label: defaultValue.label })
+    }
+  }, [defaultValue])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -174,15 +182,15 @@ export default function App() {
   const [budget, setBudget] = useState('20')
   const [departureTime, setDepartureTime] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() + 2)
-    d.setHours(10, 0, 0, 0)
-    return d.toISOString().slice(0, 16)
+    const pad = n => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
   const [showSteps, setShowSteps] = useState(false)
   const [tokenReady, setTokenReady] = useState(false)
+  const [defaultOrigin, setDefaultOrigin] = useState(null)
 
   useEffect(() => {
     fetch('/api/config')
@@ -198,6 +206,18 @@ export default function App() {
           zoom: 11,
         })
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(async pos => {
+            const { latitude, longitude } = pos.coords
+            map.current.setCenter([longitude, latitude])
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${cfg.mapboxToken}&limit=1`
+            const res = await fetch(url)
+            const data = await res.json()
+            const label = data.features?.[0]?.place_name
+            if (label) setDefaultOrigin({ lat: latitude, lng: longitude, label })
+          })
+        }
       })
       .catch(() => setError('Failed to load map configuration'))
   }, [])
@@ -344,6 +364,7 @@ export default function App() {
                 placeholder="e.g. CN Tower, Toronto"
                 token={mapboxToken.current}
                 onSelect={setOrigin}
+                defaultValue={defaultOrigin}
               />
               <LocationInput
                 id="destination"
