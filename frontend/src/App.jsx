@@ -230,6 +230,30 @@ export default function App() {
   const [tokenReady, setTokenReady] = useState(false)
   const [defaultOrigin, setDefaultOrigin] = useState(null)
 
+  // Mobile bottom sheet
+  const sheetRef = useRef(null)
+  const [sheetSnap, setSheetSnap] = useState('peek') // 'peek' | 'mid' | 'full'
+  const dragState = useRef(null)
+
+  function onSheetTouchStart(e) {
+    dragState.current = { startY: e.touches[0].clientY, snap: sheetSnap }
+  }
+
+  function onSheetTouchEnd(e) {
+    if (!dragState.current) return
+    const dy = dragState.current.startY - e.changedTouches[0].clientY
+    if (dy > 60) {
+      setSheetSnap(s => s === 'peek' ? 'mid' : 'full')
+    } else if (dy < -60) {
+      setSheetSnap(s => s === 'full' ? 'mid' : 'peek')
+    }
+    dragState.current = null
+  }
+
+  function onHandleTap() {
+    setSheetSnap(s => s === 'peek' ? 'mid' : s === 'mid' ? 'full' : 'peek')
+  }
+
   useEffect(() => {
     fetch('/api/config')
       .then(r => r.json())
@@ -351,7 +375,7 @@ export default function App() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    if (e?.preventDefault) e.preventDefault()
     if (!origin || !destination) {
       setError('Please select a location from the dropdown for both fields.')
       return
@@ -360,6 +384,7 @@ export default function App() {
     setError(null)
     setResult(null)
     setShowSteps(false)
+    setSheetSnap('mid')
     clearRoutes()
 
     try {
@@ -374,6 +399,7 @@ export default function App() {
       data.appleMapsLink = `maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(handoffAddr)}&dirflg=r`
       data.googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(handoffAddr)}&travelmode=transit`
       setResult(data)
+      setSheetSnap('mid')
       if (map.current.isStyleLoaded()) doRender(data)
       else map.current.once('load', () => doRender(data))
     } catch (err) {
@@ -385,11 +411,200 @@ export default function App() {
 
   const steps = result?.transitFaster ? result.fullTransitSteps : result?.transitSteps
 
+  const resultsBlock = (
+    <>
+      {error && (
+        <div className="error-box">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="panel-skeleton">
+          <div className="skeleton-line" style={{ width: '55%' }} />
+          <div className="skeleton-line" style={{ width: '100%', height: '80px' }} />
+          <div className="skeleton-line" style={{ width: '100%', height: '120px' }} />
+          <div className="skeleton-line" style={{ width: '40%' }} />
+        </div>
+      )}
+
+      {!loading && result?.transitFaster && (
+        <div className="results">
+          <div className="transit-faster-banner">
+            <div className="transit-faster-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v6h16V5H4zm0 8v3h16v-3H4zM7 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM6 9V6h4v3H6zm6 0V6h4v3h-4z"/>
+              </svg>
+            </div>
+            <div>
+              <div className="transit-faster-title">Transit is already faster</div>
+              <div className="transit-faster-body">
+                The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong>. The best
+                transit + Uber hybrid takes ({result.hybridTotalMinutes} min). No Uber needed.
+              </div>
+            </div>
+          </div>
+          <div className="gmaps-nudge">
+            Open Google Maps and search for this route, look for the <strong>{result.fullTransitDurationMinutes} minute</strong> option.
+          </div>
+          <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
+            {showSteps ? 'Hide' : 'Show'} directions
+          </button>
+          {showSteps && (
+            <StepList
+              steps={result.fullTransitSteps}
+              departureTime={result.fullTransitDepartureTime}
+              arrivalTime={result.fullTransitArrivalTime}
+            />
+          )}
+        </div>
+      )}
+
+      {!loading && result && !result.transitFaster && (
+        <div className="results">
+          <div className="handoff-banner">
+            <span className="handoff-dot" />
+            <div style={{ flex: 1 }}>
+              <div className="handoff-label">Call Uber Here</div>
+              <div className="handoff-name">{result.handoffStop.fullAddress || result.handoffStop.name}</div>
+              <div className="handoff-maps-row">
+                <a className="open-maps-btn" href={result.appleMapsLink} target="_blank" rel="noopener noreferrer">
+                  Apple Maps
+                </a>
+                <a className="open-maps-btn" href={result.googleMapsLink} target="_blank" rel="noopener noreferrer">
+                  Google Maps
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="stat-grid">
+            <div className="stat-card transit">
+              <div className="stat-value">{result.transitDurationMinutes} min</div>
+              <div className="stat-label">Transit time</div>
+            </div>
+            <div className="stat-card uber-time">
+              <div className="stat-value">{result.uberDurationMinutes} min</div>
+              <div className="stat-label">Uber time</div>
+            </div>
+            <div className="stat-card uber-cost">
+              <span className="tooltip-wrap">
+                <span className="tooltip-icon">?</span>
+                <span className="tooltip-text">All costs are estimates based on typical Uber pricing and may not reflect actual fares.</span>
+              </span>
+              <div className="stat-value">${Math.ceil(result.estimatedUberCost)}</div>
+              <div className="stat-label">Cost estimate</div>
+            </div>
+            {result.fullTransitArrivalTime && (
+              <div className="stat-card full-transit-arrival">
+                <div className="stat-value">{result.fullTransitArrivalTime}</div>
+                <div className="stat-label">Transit arrives</div>
+              </div>
+            )}
+            <div className="stat-card hybrid-arrival stat-card--wide">
+              <div className="hybrid-arrival-inner">
+                <div>
+                  <div className="stat-value">{result.hybridArrivalTime}</div>
+                  <div className="stat-label">Hybrid arrives</div>
+                </div>
+                {result.minutesEarlier > 0 && (
+                  <div className="stat-faster-badge">
+                    {result.minutesEarlier} min earlier
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
+            {showSteps ? 'Hide' : 'Show'} transit directions
+          </button>
+          {showSteps && (
+            <StepList
+              steps={steps}
+              departureTime={result.transitDepartureTime}
+              arrivalTime={result.transitArrivalTime}
+            />
+          )}
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div className="app">
       <div ref={mapContainer} className="map-container" />
 
-      <div className="panel">
+      {/* ── Mobile top bar (inputs only, no header) ── */}
+      <div className="mobile-top-bar">
+        {tokenReady && (
+          <>
+            <LocationInput
+              id="origin-m"
+              label="From"
+              placeholder="e.g. CN Tower, Toronto"
+              token={mapboxToken.current}
+              onSelect={setOrigin}
+              defaultValue={defaultOrigin}
+            />
+            <LocationInput
+              id="destination-m"
+              label="To"
+              placeholder="e.g. York University"
+              token={mapboxToken.current}
+              onSelect={setDestination}
+            />
+          </>
+        )}
+        <div className="mobile-row">
+          <div className="form-group" style={{ flex: '0 0 110px' }}>
+            <label htmlFor="budget-m">Budget</label>
+            <div className="input-prefix">
+              <span>$</span>
+              <input
+                id="budget-m"
+                type="number"
+                min="3.50"
+                step="0.50"
+                value={budget}
+                onChange={e => setBudget(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
+            <label htmlFor="departure-m">Departure</label>
+            <input
+              id="departure-m"
+              type="datetime-local"
+              value={departureTime}
+              onChange={e => setDepartureTime(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile bottom sheet (button + results) ── */}
+      <div
+        ref={sheetRef}
+        className={`panel sheet-${sheetSnap}`}
+        onTouchStart={onSheetTouchStart}
+        onTouchEnd={onSheetTouchEnd}
+      >
+        <div className="sheet-handle" onClick={onHandleTap} />
+        <div className="mobile-sheet-btn">
+          <button className="submit-btn" disabled={loading} onClick={handleSubmit}>
+            {loading ? <span className="spinner" /> : 'Find Route'}
+          </button>
+        </div>
+        <div className="mobile-results">
+          {resultsBlock}
+        </div>
+      </div>
+
+      {/* ── Desktop panel (unchanged layout) ── */}
+      <div className="panel desktop-panel">
         <div className="panel-header">
           <h1 className="logo">UberMaps</h1>
           <p className="tagline">Transit to the handoff, Uber the rest.</p>
@@ -448,134 +663,8 @@ export default function App() {
           </button>
         </form>
 
-        {error && (
-          <div className="error-box">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-
-        {loading && (
-          <div className="panel-skeleton">
-            <div className="skeleton-line" style={{ width: '55%' }} />
-            <div className="skeleton-line" style={{ width: '100%', height: '80px' }} />
-            <div className="skeleton-line" style={{ width: '100%', height: '120px' }} />
-            <div className="skeleton-line" style={{ width: '40%' }} />
-          </div>
-        )}
-
-        {!loading && result?.transitFaster && (
-          <div className="results">
-            <div className="transit-faster-banner">
-              <div className="transit-faster-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v6h16V5H4zm0 8v3h16v-3H4zM7 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM6 9V6h4v3H6zm6 0V6h4v3h-4z"/>
-                </svg>
-              </div>
-              <div>
-                <div className="transit-faster-title">Transit is already faster</div>
-                <div className="transit-faster-body">
-                  The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong>. The best
-                  transit + Uber hybrid takes ({result.hybridTotalMinutes} min). No Uber needed.
-                </div>
-              </div>
-            </div>
-            <div className="gmaps-nudge">
-              Open Google Maps and search for this route, look for the <strong>{result.fullTransitDurationMinutes} minute</strong> option.
-            </div>
-            <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
-              {showSteps ? 'Hide' : 'Show'} directions
-            </button>
-            {showSteps && (
-              <StepList
-                steps={result.fullTransitSteps}
-                departureTime={result.fullTransitDepartureTime}
-                arrivalTime={result.fullTransitArrivalTime}
-              />
-            )}
-          </div>
-        )}
-
-        {!loading && result && !result.transitFaster && (
-          <div className="results">
-            <div className="handoff-banner">
-              <span className="handoff-dot" />
-              <div style={{ flex: 1 }}>
-                <div className="handoff-label">Call Uber Here</div>
-                <div className="handoff-name">{result.handoffStop.fullAddress || result.handoffStop.name}</div>
-                <div className="handoff-maps-row">
-                  <a
-                    className="open-maps-btn"
-                    href={result.appleMapsLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Apple Maps
-                  </a>
-                  <a
-                    className="open-maps-btn"
-                    href={result.googleMapsLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Google Maps
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="stat-grid">
-              <div className="stat-card transit">
-                <div className="stat-value">{result.transitDurationMinutes} min</div>
-                <div className="stat-label">Transit time</div>
-              </div>
-              <div className="stat-card uber-time">
-                <div className="stat-value">{result.uberDurationMinutes} min</div>
-                <div className="stat-label">Uber time</div>
-              </div>
-              <div className="stat-card uber-cost">
-                <span className="tooltip-wrap">
-                  <span className="tooltip-icon">?</span>
-                  <span className="tooltip-text">All costs are estimates based on typical Uber pricing and may not reflect actual fares.</span>
-                </span>
-                <div className="stat-value">${Math.ceil(result.estimatedUberCost)}</div>
-                <div className="stat-label">Cost estimate</div>
-              </div>
-              {result.fullTransitArrivalTime && (
-                <div className="stat-card full-transit-arrival">
-                  <div className="stat-value">{result.fullTransitArrivalTime}</div>
-                  <div className="stat-label">Transit arrives</div>
-                </div>
-              )}
-              <div className="stat-card hybrid-arrival stat-card--wide">
-                <div className="hybrid-arrival-inner">
-                  <div>
-                    <div className="stat-value">{result.hybridArrivalTime}</div>
-                    <div className="stat-label">Hybrid arrives</div>
-                  </div>
-                  {result.minutesEarlier > 0 && (
-                    <div className="stat-faster-badge">
-                      {result.minutesEarlier} min earlier
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
-              {showSteps ? 'Hide' : 'Show'} transit directions
-            </button>
-            {showSteps && (
-              <StepList
-                steps={steps}
-                departureTime={result.transitDepartureTime}
-                arrivalTime={result.transitArrivalTime}
-              />
-            )}
-
-          </div>
-        )}
+        {resultsBlock}
       </div>
-
     </div>
   )
 }
