@@ -3,7 +3,7 @@
   --uber-green:     #16a34a;
   --handoff-orange: #f4511e;
   --panel-width:    400px;
-  --radius:         10px;
+  --radius:         4px;
   --bg:             #0d0d0d;
   --panel-bg:       #111111;
   --surface:        #161616;
@@ -183,7 +183,8 @@
 }
 
 .suggestion-pin {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
   margin-top: 1px;
   opacity: 0.6;
@@ -247,7 +248,7 @@
   background: var(--transit-blue);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 15px;
   font-weight: 700;
   font-family: inherit;
@@ -370,7 +371,7 @@
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12);
   color: #ccc;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
@@ -394,6 +395,7 @@
   padding: 14px;
   border-radius: var(--radius);
   background: #181818;
+  position: relative;
 }
 
 .stat-card--wide {
@@ -409,7 +411,7 @@
 .stat-card.transit .stat-value              { color: var(--transit-blue); }
 .stat-card.uber-time .stat-value            { color: var(--uber-green); }
 .stat-card.uber-cost .stat-value            { color: var(--uber-green); }
-.stat-card.hybrid-arrival .stat-value       { color: var(--handoff-orange); }
+.stat-card.hybrid-arrival .stat-value       { color: var(--text-primary); }
 .stat-card.full-transit-arrival .stat-value { color: var(--text-primary); }
 
 .stat-value {
@@ -428,6 +430,59 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tooltip-wrap {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #666;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  cursor: default;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.tooltip-text {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  transform: none;
+  background: #222;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.4;
+  padding: 6px 9px;
+  border-radius: 6px;
+  width: 200px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.tooltip-wrap:hover .tooltip-text {
+  display: block;
 }
 
 .stat-faster-badge {
@@ -435,7 +490,7 @@
   background: rgba(22,163,74,0.15);
   border: 1px solid rgba(22,163,74,0.3);
   color: var(--uber-green);
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
@@ -495,9 +550,10 @@
 }
 
 .transit-faster-icon {
-  font-size: 22px;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
-  line-height: 1;
+  color: var(--transit-blue);
 }
 
 .transit-faster-title {
@@ -606,11 +662,12 @@
 }
 
 .step-icon {
-  font-size: 15px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   flex-shrink: 0;
   width: 24px;
-  text-align: center;
-  line-height: 1.4;
+  padding-top: 2px;
   opacity: 0.75;
 }
 

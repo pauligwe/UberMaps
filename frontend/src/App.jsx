@@ -109,7 +109,11 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue }
           <ul className="suggestions">
             {suggestions.map(s => (
               <li key={s.id} onMouseDown={() => handlePick(s)}>
-                <span className="suggestion-pin">📍</span>
+                <span className="suggestion-pin">
+                  <svg width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5zm0 6.5c-.83 0-1.5-.67-1.5-1.5S5.17 3.5 6 3.5 7.5 4.17 7.5 5 6.83 6.5 6 6.5z" fill="currentColor"/>
+                  </svg>
+                </span>
                 <span className="suggestion-label">{s.label}</span>
               </li>
             ))}
@@ -121,11 +125,41 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue }
 }
 
 function vehicleIcon(vehicle) {
-  if (vehicle === 'Subway') return '🚇'
-  if (vehicle === 'Bus') return '🚌'
-  if (vehicle === 'Tram' || vehicle === 'Light rail') return '🚋'
-  if (vehicle === 'Train' || vehicle === 'Commuter train') return '🚆'
-  return '🚌'
+  if (vehicle === 'Subway') return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="2" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2"/>
+      <path d="M3 12h18" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="7.5" cy="16.5" r="1.5" fill="currentColor"/>
+      <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor"/>
+      <path d="M7 22l2-4M17 22l-2-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M8 7h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  )
+  if (vehicle === 'Tram' || vehicle === 'Light rail') return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="3" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+      <path d="M4 11h16" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="8" cy="20" r="2" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="16" cy="20" r="2" stroke="currentColor" strokeWidth="2"/>
+      <path d="M8 17v1M16 17v1" stroke="currentColor" strokeWidth="2"/>
+      <path d="M8 3V1M16 3V1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  )
+  if (vehicle === 'Train' || vehicle === 'Commuter train') return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 15V6a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v9" stroke="currentColor" strokeWidth="2"/>
+      <path d="M2 15h20" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="7" cy="19" r="2" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="17" cy="19" r="2" stroke="currentColor" strokeWidth="2"/>
+      <path d="M9 19h6" stroke="currentColor" strokeWidth="2"/>
+      <path d="M8 6h8M8 10h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  )
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v6h16V5H4zm0 8v3h16v-3H4zM7 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM6 9V6h4v3H6zm6 0V6h4v3h-4z"/>
+    </svg>
+  )
 }
 
 function StepList({ steps, departureTime, arrivalTime }) {
@@ -146,7 +180,7 @@ function StepList({ steps, departureTime, arrivalTime }) {
               <div className="step-icon">{vehicleIcon(step.vehicle)}</div>
               <div className="step-body">
                 <div className="step-main">
-                  <strong>{step.departureTime}</strong> — Board {step.vehicle} <strong>{step.line}</strong> at <strong>{step.departureStop}</strong>
+                  <strong>{step.departureTime}</strong> · Board {step.vehicle} <strong>{step.line}</strong> at <strong>{step.departureStop}</strong>
                 </div>
                 <div className="step-main step-headsign">
                   Direction: {step.headsign}
@@ -158,7 +192,11 @@ function StepList({ steps, departureTime, arrivalTime }) {
             </>
           ) : (
             <>
-              <div className="step-icon">🚶</div>
+              <div className="step-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M13.5 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/>
+                </svg>
+              </div>
               <div className="step-body">
                 <div className="step-main">{step.instruction}</div>
                 <div className="step-detail">{step.distance} · {step.duration}</div>
@@ -277,7 +315,9 @@ export default function App() {
       allCoords.push(...coords)
     }
 
-    addLine('uber-route', data.uberPolylineGeojson.coordinates, '#16a34a', true)
+    // Uber-style: dark casing layer underneath, solid white line on top
+    addLine('uber-route-casing', data.uberPolylineGeojson.coordinates, '#000000', false, 9)
+    addLine('uber-route', data.uberPolylineGeojson.coordinates, '#ffffff', false, 5)
     allCoords.push(...data.uberPolylineGeojson.coordinates)
 
     const popup = new mapboxgl.Popup({ offset: 12 }).setText(`Call Uber here: ${data.handoffStop.fullAddress || data.handoffStop.name}`)
@@ -426,20 +466,24 @@ export default function App() {
         {!loading && result?.transitFaster && (
           <div className="results">
             <div className="transit-faster-banner">
-              <div className="transit-faster-icon">🚌</div>
+              <div className="transit-faster-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v6h16V5H4zm0 8v3h16v-3H4zM7 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM6 9V6h4v3H6zm6 0V6h4v3h-4z"/>
+                </svg>
+              </div>
               <div>
                 <div className="transit-faster-title">Transit is already faster</div>
                 <div className="transit-faster-body">
-                  The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong> — the best
+                  The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong>. The best
                   transit + Uber hybrid takes ({result.hybridTotalMinutes} min). No Uber needed.
                 </div>
               </div>
             </div>
             <div className="gmaps-nudge">
-              Open Google Maps and search for this route — look for the <strong>{result.fullTransitDurationMinutes}-minute</strong> transit option.
+              Open Google Maps and search for this route, look for the <strong>{result.fullTransitDurationMinutes} minute</strong> option.
             </div>
             <button className="steps-toggle" onClick={() => setShowSteps(v => !v)}>
-              {showSteps ? 'Hide' : 'Show'} turn-by-turn directions
+              {showSteps ? 'Hide' : 'Show'} directions
             </button>
             {showSteps && (
               <StepList
@@ -489,8 +533,12 @@ export default function App() {
                 <div className="stat-label">Uber time</div>
               </div>
               <div className="stat-card uber-cost">
-                <div className="stat-value">${result.estimatedUberCost.toFixed(2)}</div>
-                <div className="stat-label">Uber cost</div>
+                <span className="tooltip-wrap">
+                  <span className="tooltip-icon">?</span>
+                  <span className="tooltip-text">All costs are estimates based on typical Uber pricing and may not reflect actual fares.</span>
+                </span>
+                <div className="stat-value">${Math.ceil(result.estimatedUberCost)}</div>
+                <div className="stat-label">Cost estimate</div>
               </div>
               {result.fullTransitArrivalTime && (
                 <div className="stat-card full-transit-arrival">

@@ -5,6 +5,7 @@ const { getTransitTime, getFullTransitRoute } = require('./google');
 
 const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
 const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
+const MAX_CANDIDATES = 30; // cap on Google Directions calls after OSRM filter
 
 async function runPipeline({ origin, destination, budget, departureTime }) {
   // Step 1: Radius calculation
@@ -46,9 +47,16 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   }
   const stopsAfterFareFilter = survivingStops.length;
 
+  // Sort by uber_duration_min descending — stops with a longer Uber leg are farther from the
+  // destination, meaning more of the journey is covered by Uber (faster than transit).
+  // Cap at MAX_CANDIDATES before the expensive Google Directions calls.
+  const candidates = survivingStops
+    .sort((a, b) => b.uberDurationMin - a.uberDurationMin)
+    .slice(0, MAX_CANDIDATES);
+
   // Step 4: Transit validation — parallel Google Directions calls
   const transitResults = await Promise.allSettled(
-    survivingStops.map(async (stop) => {
+    candidates.map(async (stop) => {
       const { durationMin, departureTime: depTime, arrivalTime: arrTime, arrivalUnix, encodedPolyline, steps } = await getTransitTime(
         origin.lat, origin.lng, stop.lat, stop.lng, departureTime
       );
@@ -86,8 +94,8 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
       fullTransitArrivalTime: baselineTransit.arrivalTime,
       fullTransitSteps: baselineTransit.steps,
       fullTransitEncodedPolyline: baselineTransit.encodedPolyline,
-      hybridTotalMinutes: validatedStops[0]
-        ? validatedStops[0].transitDurationMin + Math.ceil(validatedStops[0].uberDurationMin)
+      hybridTotalMinutes: validatedStops.length > 0
+        ? Math.min(...validatedStops.map(s => s.transitDurationMin + Math.ceil(s.uberDurationMin)))
         : null,
     };
   }

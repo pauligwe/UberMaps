@@ -53,7 +53,7 @@ out body;
   } catch (err) {
     console.error(`[overpass] HTTP ${err.status ?? 'ERR'}: ${err.message}`);
     if (err.status === 429 || err.status === 504) {
-      throw new Error('Overpass timeout or rate limit — try again shortly');
+      throw new Error('Overpass timeout or rate limit, try again shortly');
     }
     throw new Error(`Overpass request failed: ${err.message}`);
   }
@@ -62,12 +62,12 @@ out body;
 
   // Deduplicate by id (both query types can return the same stop)
   const seen = new Set();
-  const stops = [];
+  const raw = [];
   for (const el of elements) {
     if (!el.lat || !el.lon) continue;
     if (seen.has(el.id)) continue;
     seen.add(el.id);
-    stops.push({
+    raw.push({
       id: el.id,
       name: el.tags?.name || 'Unnamed Stop',
       lat: el.lat,
@@ -75,7 +75,40 @@ out body;
     });
   }
 
-  return stops;
+  return clusterStops(raw, 250);
+}
+
+// Group stops within clusterRadiusM metres of each other, keep one representative per cluster.
+// This eliminates redundant stops on the same block without dropping meaningfully different candidates.
+function clusterStops(stops, clusterRadiusM) {
+  const R = 6371000; // earth radius in metres
+  const assigned = new Set();
+  const clusters = [];
+
+  for (const stop of stops) {
+    if (assigned.has(stop.id)) continue;
+    const cluster = [stop];
+    assigned.add(stop.id);
+
+    for (const other of stops) {
+      if (assigned.has(other.id)) continue;
+      const dLat = (other.lat - stop.lat) * Math.PI / 180;
+      const dLng = (other.lng - stop.lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(stop.lat * Math.PI / 180) * Math.cos(other.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      const distM = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      if (distM <= clusterRadiusM) {
+        cluster.push(other);
+        assigned.add(other.id);
+      }
+    }
+
+    // Representative: named stop preferred, otherwise first in cluster
+    const rep = cluster.find(s => s.name !== 'Unnamed Stop') ?? cluster[0];
+    clusters.push(rep);
+  }
+
+  return clusters;
 }
 
 module.exports = { fetchStops };
