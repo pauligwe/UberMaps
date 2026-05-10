@@ -11,6 +11,7 @@ if (!process.env.MAPBOX_TOKEN) {
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(cors());
@@ -21,8 +22,17 @@ app.get('/api/config', (req, res) => {
   res.json({ mapboxToken: process.env.MAPBOX_TOKEN || '' });
 });
 
+// Rate limit route searches: 20 per IP per 10 minutes
+const routeLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many route requests, please wait a few minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // API routes
-app.use('/api/route', require('./routes/route'));
+app.use('/api/route', routeLimit, require('./routes/route'));
 
 // Serve Vite-built frontend
 const frontendDist = path.join(__dirname, '../frontend/dist');

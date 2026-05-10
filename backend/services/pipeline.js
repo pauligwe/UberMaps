@@ -5,7 +5,7 @@ const { getTransitTime, getFullTransitRoute } = require('./google');
 
 const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
 const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
-const MAX_CANDIDATES = 30; // cap on Google Directions calls after OSRM filter
+const MAX_CANDIDATES = 10; // cap on Google Directions calls after OSRM filter
 
 async function runPipeline({ origin, destination, budget, departureTime }) {
   // Step 1: Radius calculation

@@ -421,10 +421,10 @@
 }
 
 .stat-card.transit .stat-value              { color: var(--transit-blue); }
-.stat-card.uber-time .stat-value            { color: var(--uber-green); }
-.stat-card.uber-cost .stat-value            { color: var(--uber-green); }
+.stat-card.uber-time .stat-value            { color: var(--text-primary); }
+.stat-card.uber-cost .stat-value            { color: var(--text-primary); }
 .stat-card.hybrid-arrival .stat-value       { color: var(--text-primary); }
-.stat-card.full-transit-arrival .stat-value { color: var(--text-primary); }
+.stat-card.full-transit-arrival .stat-value { color: #888888; }
 
 .stat-value {
   font-size: 26px;
@@ -474,11 +474,11 @@
 
 .tooltip-text {
   display: none;
-  position: fixed;
-  bottom: auto;
-  right: 8px;
-  left: auto;
-  transform: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
   background: #222;
   color: #fff;
   font-size: 11px;

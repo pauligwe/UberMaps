@@ -3,12 +3,6 @@ const axios = require('axios');
 
 const DIRECTIONS_URL = 'https://maps.googleapis.com/maps/api/directions/json';
 
-// Pick the route with the earliest arrival_time across all alternatives
-function earliestArrivalRoute(routes) {
-  return routes.reduce((best, r) =>
-    r.legs[0].arrival_time.value < best.legs[0].arrival_time.value ? r : best
-  );
-}
 
 function extractSteps(leg) {
   return leg.steps.map(step => {
@@ -56,7 +50,6 @@ async function getTransitTime(originLat, originLng, stopLat, stopLng, departureT
     destination: `${stopLat},${stopLng}`,
     mode: 'transit',
     departure_time: departureUnix,
-    alternatives: true,
     key: process.env.GOOGLE_MAPS_API_KEY,
   });
 
@@ -65,7 +58,7 @@ async function getTransitTime(originLat, originLng, stopLat, stopLng, departureT
   if (data.status === 'OVER_DAILY_LIMIT' || data.status === 'OVER_QUERY_LIMIT') throw new Error('Google API quota exceeded');
   if (data.status !== 'OK') throw new Error(`Google Directions error: ${data.status}`);
 
-  const best = earliestArrivalRoute(data.routes);
+  const best = data.routes[0];
   const leg = best.legs[0];
   return {
     durationMin: Math.ceil(leg.duration.value / 60),
@@ -85,14 +78,13 @@ async function getFullTransitRoute(originLat, originLng, destLat, destLng, depar
     destination: `${destLat},${destLng}`,
     mode: 'transit',
     departure_time: departureUnix,
-    alternatives: true,
     key: process.env.GOOGLE_MAPS_API_KEY,
   });
 
   if (data.status === 'ZERO_RESULTS') return null;
   if (data.status !== 'OK') throw new Error(`Google Directions error: ${data.status}`);
 
-  const bestBaseline = earliestArrivalRoute(data.routes);
+  const bestBaseline = data.routes[0];
   const leg = bestBaseline.legs[0];
   return {
     durationMin: Math.ceil(leg.duration.value / 60),
