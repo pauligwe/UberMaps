@@ -5,6 +5,7 @@ const OSRM_BASE = 'http://router.project-osrm.org/route/v1/driving';
 
 // In-memory cache keyed by "fromLat,fromLng->toLat,toLng"
 const distanceCache = new Map();
+const OSRM_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function decodePoly(encoded) {
   const coords = [];
@@ -34,7 +35,9 @@ function decodePoly(encoded) {
 
 async function getRoadDistanceAndDuration(fromLat, fromLng, toLat, toLng) {
   const cacheKey = `${fromLat},${fromLng}->${toLat},${toLng}`;
-  if (distanceCache.has(cacheKey)) return distanceCache.get(cacheKey);
+  const cached = distanceCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < OSRM_CACHE_TTL_MS) return cached.data;
+  if (cached) distanceCache.delete(cacheKey);
 
   const url = `${OSRM_BASE}/${fromLng},${fromLat};${toLng},${toLat}?overview=false`;
   let response;
@@ -54,7 +57,7 @@ async function getRoadDistanceAndDuration(fromLat, fromLng, toLat, toLng) {
     durationMin: route.duration / 60,
   };
 
-  distanceCache.set(cacheKey, result);
+  distanceCache.set(cacheKey, { data: result, ts: Date.now() });
   if (distanceCache.size > 5000) distanceCache.delete(distanceCache.keys().next().value);
   return result;
 }

@@ -22,6 +22,15 @@ router.post('/', async (req, res) => {
   if (isNaN(Date.parse(departureTime))) {
     return res.status(400).json({ error: 'departureTime must be a valid ISO date string' });
   }
+  if (
+    origin.lat < -90 || origin.lat > 90 || origin.lng < -180 || origin.lng > 180 ||
+    destination.lat < -90 || destination.lat > 90 || destination.lng < -180 || destination.lng > 180
+  ) {
+    return res.status(400).json({ error: 'Coordinates out of valid range (lat -90..90, lng -180..180)' });
+  }
+  if (budget > 200) {
+    return res.status(400).json({ error: 'budget must be $200 or less' });
+  }
 
   try {
     const result = await runPipeline({ origin, destination, budget, departureTime, city });
