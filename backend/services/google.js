@@ -25,6 +25,7 @@ function extractSteps(leg) {
         arrivalTime: t.arrival_time.text,
         numStops: t.num_stops,
         duration: step.duration.text,
+        encodedPolyline: step.polyline?.points ?? null,
       };
     }
     // WALKING — strip HTML tags from instructions
@@ -33,6 +34,7 @@ function extractSteps(leg) {
       instruction: step.html_instructions.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
       duration: step.duration.text,
       distance: step.distance.text,
+      encodedPolyline: step.polyline?.points ?? null,
     };
   });
 }

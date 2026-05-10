@@ -74,7 +74,7 @@ function LocationInput({ id, label, placeholder, token, onSelect }) {
   function handlePick(s) {
     setText(s.label)
     setConfirmed(s)
-    onSelect({ lat: s.lat, lng: s.lng })
+    onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
   }
@@ -202,46 +202,76 @@ export default function App() {
       .catch(() => setError('Failed to load map configuration'))
   }, [])
 
+  const activeLayerIds = useRef([])
+
   function clearRoutes() {
     if (!map.current) return
-    ;['transit-route', 'uber-route', 'baseline-route'].forEach(id => {
-      if (map.current.getSource(id)) {
-        map.current.removeLayer(id)
-        map.current.removeSource(id)
-      }
+    activeLayerIds.current.forEach(id => {
+      if (map.current.getLayer(id)) map.current.removeLayer(id)
+      if (map.current.getSource(id)) map.current.removeSource(id)
     })
+    activeLayerIds.current = []
     if (handoffMarker.current) {
       handoffMarker.current.remove()
       handoffMarker.current = null
     }
   }
 
-  function addLine(id, coords, color, dashed = false) {
+  function addLine(id, coords, color, dashed = false, width = 5) {
     const m = map.current
     m.addSource(id, {
       type: 'geojson',
       data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } },
     })
-    const paint = { 'line-color': color, 'line-width': 5, 'line-opacity': 0.9 }
+    const paint = { 'line-color': color, 'line-width': width, 'line-opacity': 0.9 }
     if (dashed) paint['line-dasharray'] = [2, 1.5]
     m.addLayer({ id, type: 'line', source: id, paint })
+    activeLayerIds.current.push(id)
   }
 
   function renderHybridRoutes(data) {
     clearRoutes()
     const m = map.current
     if (!m) return
-    const transitCoords = decodePolyline(data.transitEncodedPolyline)
-    addLine('transit-route', transitCoords, '#1a73e8')
+
+    const allCoords = []
+
+    // Draw each transit step individually: transit legs solid blue, walking legs dashed gray
+    if (data.transitSteps) {
+      data.transitSteps.forEach((step, i) => {
+        if (!step.encodedPolyline) return
+        const coords = decodePolyline(step.encodedPolyline)
+        if (!coords.length) return
+        const id = `transit-step-${i}`
+        if (step.mode === 'TRANSIT') {
+          addLine(id, coords, '#1a73e8', false, 5)
+        } else {
+          addLine(id, coords, '#888888', true, 3)
+        }
+        allCoords.push(...coords)
+      })
+    } else {
+      // Fallback to overview polyline if steps have no per-step polylines
+      const coords = decodePolyline(data.transitEncodedPolyline)
+      addLine('transit-route', coords, '#1a73e8')
+      allCoords.push(...coords)
+    }
+
     addLine('uber-route', data.uberPolylineGeojson.coordinates, '#00b300', true)
-    const popup = new mapboxgl.Popup({ offset: 12 }).setText(`Handoff: ${data.handoffStop.name}`)
-    handoffMarker.current = new mapboxgl.Marker({ color: '#f4511e' })
+    allCoords.push(...data.uberPolylineGeojson.coordinates)
+
+    const popup = new mapboxgl.Popup({ offset: 12 }).setText(`Call Uber here: ${data.handoffStop.fullAddress || data.handoffStop.name}`)
+    const el = document.createElement('div')
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#f4511e;border:3px solid #fff;box-shadow:0 0 0 2px #f4511e,0 2px 6px rgba(0,0,0,0.4);cursor:pointer;'
+    handoffMarker.current = new mapboxgl.Marker({ element: el })
       .setLngLat([data.handoffStop.lng, data.handoffStop.lat])
       .setPopup(popup)
       .addTo(m)
-    const allCoords = [...transitCoords, ...data.uberPolylineGeojson.coordinates]
-    const bounds = allCoords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]))
-    m.fitBounds(bounds, { padding: 60, maxZoom: 14 })
+
+    if (allCoords.length > 0) {
+      const bounds = allCoords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]))
+      m.fitBounds(bounds, { padding: 60, maxZoom: 14 })
+    }
   }
 
   function renderBaselineRoute(data) {
@@ -391,9 +421,27 @@ export default function App() {
           <div className="results">
             <div className="handoff-banner">
               <span className="handoff-dot" />
-              <div>
-                <div className="handoff-label">Handoff Stop</div>
-                <div className="handoff-name">{result.handoffStop.name}</div>
+              <div style={{ flex: 1 }}>
+                <div className="handoff-label">Call Uber Here</div>
+                <div className="handoff-name">{result.handoffStop.fullAddress || result.handoffStop.name}</div>
+                <div className="handoff-maps-row">
+                  <a
+                    className="open-maps-btn"
+                    href={`maps://?saddr=${encodeURIComponent(origin.label)}&daddr=${encodeURIComponent(result.handoffStop.fullAddress || result.handoffStop.name)}&dirflg=r`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Apple Maps
+                  </a>
+                  <a
+                    className="open-maps-btn"
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin.label)}&destination=${encodeURIComponent(result.handoffStop.fullAddress || result.handoffStop.name)}&travelmode=transit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Google Maps
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -441,7 +489,11 @@ export default function App() {
             <div className="legend">
               <div className="legend-item">
                 <span className="legend-line transit-line" />
-                Transit to handoff
+                Bus / train leg
+              </div>
+              <div className="legend-item">
+                <span className="legend-line walking-line" />
+                Walking leg
               </div>
               <div className="legend-item">
                 <span className="legend-line uber-line" />
@@ -449,7 +501,7 @@ export default function App() {
               </div>
               <div className="legend-item">
                 <span className="legend-dot" />
-                Handoff stop
+                Call Uber here
               </div>
             </div>
           </div>

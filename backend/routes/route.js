@@ -3,7 +3,7 @@ const { runPipeline } = require('../services/pipeline');
 
 const router = express.Router();
 
-const USER_FACING_PHRASES = ['Budget is below', 'No transit stops', 'No stops found', 'minimum fare'];
+const USER_FACING_PHRASES = ['Budget is below', 'No transit stops', 'No stops found', 'minimum fare', 'Overpass timeout', 'rate limit'];
 
 router.post('/', async (req, res) => {
   const { origin, destination, budget, departureTime } = req.body;
@@ -28,6 +28,7 @@ router.post('/', async (req, res) => {
     res.json(result);
   } catch (err) {
     const isUserError = USER_FACING_PHRASES.some((p) => err.message.includes(p));
+    console.error(`[route] ${isUserError ? 'user error' : 'pipeline error'}:`, err.message);
     res.status(isUserError ? 400 : 502).json({ error: err.message });
   }
 });

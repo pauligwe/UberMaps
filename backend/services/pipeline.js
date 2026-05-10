@@ -120,9 +120,13 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
     winner.lat, winner.lng, destination.lat, destination.lng
   );
 
+  // Use the last transit step's arrivalStop as the full intersection address
+  const lastTransitStep = winner.steps?.slice().reverse().find(s => s.mode === 'TRANSIT');
+  const fullAddress = lastTransitStep?.arrivalStop || winner.name;
+
   return {
     transitFaster: false,
-    handoffStop: { name: winner.name, lat: winner.lat, lng: winner.lng },
+    handoffStop: { name: winner.name, fullAddress, lat: winner.lat, lng: winner.lng },
     estimatedUberCost: Math.round(winner.estimatedFare * 100) / 100,
     transitDurationMinutes: winner.transitDurationMin,
     uberDurationMinutes,

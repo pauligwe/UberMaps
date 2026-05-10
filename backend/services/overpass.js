@@ -51,6 +51,7 @@ out body;
   try {
     data = await httpsPost(OVERPASS_URL, query);
   } catch (err) {
+    console.error(`[overpass] HTTP ${err.status ?? 'ERR'}: ${err.message}`);
     if (err.status === 429 || err.status === 504) {
       throw new Error('Overpass timeout or rate limit — try again shortly');
     }
