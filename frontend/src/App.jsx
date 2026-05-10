@@ -25,8 +25,16 @@ function decodePolyline(encoded) {
   return coords
 }
 
-async function fetchSuggestions(query, token, userLocation) {
+const suggestCache = new Map() // key -> { results, ts }
+const SUGGEST_CACHE_TTL = 60_000
+
+async function fetchSuggestions(query, token, userLocation, sessionToken, signal) {
   if (!query || query.length < 2) return []
+  const proximity = userLocation ? `${userLocation.lng},${userLocation.lat}` : null
+  const cacheKey = `${query}|${proximity}`
+  const cached = suggestCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) return cached.results
+
   const params = new URLSearchParams({
     q: query,
     access_token: token,
@@ -35,12 +43,12 @@ async function fetchSuggestions(query, token, userLocation) {
     types: 'address,poi,place,neighborhood',
   })
   if (userLocation) {
-    params.set('proximity', `${userLocation.lng},${userLocation.lat}`)
+    params.set('proximity', proximity)
     if (userLocation.country) params.set('country', userLocation.country)
   }
-  const sessionToken = crypto.randomUUID()
   const res = await fetch(
-    `https://api.mapbox.com/search/searchbox/v1/suggest?${params}&session_token=${sessionToken}`
+    `https://api.mapbox.com/search/searchbox/v1/suggest?${params}&session_token=${sessionToken}`,
+    { signal }
   )
   const data = await res.json()
   const suggestions = data.suggestions || []
@@ -49,7 +57,8 @@ async function fetchSuggestions(query, token, userLocation) {
   const results = await Promise.all(
     suggestions.map(async s => {
       const r = await fetch(
-        `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapbox_id}?access_token=${token}&session_token=${sessionToken}`
+        `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapbox_id}?access_token=${token}&session_token=${sessionToken}`,
+        { signal }
       )
       const d = await r.json()
       const feature = d.features?.[0]
@@ -63,7 +72,9 @@ async function fetchSuggestions(query, token, userLocation) {
       }
     })
   )
-  return results.filter(Boolean)
+  const filtered = results.filter(Boolean)
+  suggestCache.set(cacheKey, { results: filtered, ts: Date.now() })
+  return filtered
 }
 
 function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation }) {
@@ -72,6 +83,8 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   const [confirmed, setConfirmed] = useState(null)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef(null)
+  const abortRef = useRef(null)
+  const sessionTokenRef = useRef(crypto.randomUUID())
   const wrapperRef = useRef(null)
 
   useEffect(() => {
@@ -80,7 +93,8 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
       setConfirmed(defaultValue)
       onSelect({ lat: defaultValue.lat, lng: defaultValue.lng, label: defaultValue.label })
     }
-  }, [defaultValue])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultValue?.label])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -100,11 +114,19 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     onSelect(null)
     setOpen(true)
 
+    if (abortRef.current) abortRef.current.abort()
+    abortRef.current = new AbortController()
+    const signal = abortRef.current.signal
+
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
-      const results = await fetchSuggestions(val, token, userLocation)
-      setSuggestions(results)
-    }, 300)
+      try {
+        const results = await fetchSuggestions(val, token, userLocation, sessionTokenRef.current, signal)
+        setSuggestions(results)
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('fetchSuggestions error:', err)
+      }
+    }, 500)
   }
 
   function handlePick(s) {
@@ -113,6 +135,7 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
+    sessionTokenRef.current = crypto.randomUUID()
   }
 
   const showDropdown = open && suggestions.length > 0
@@ -483,8 +506,11 @@ export default function App() {
             <div>
               <div className="transit-faster-title">Transit is already faster</div>
               <div className="transit-faster-body">
-                The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong>. The best
-                transit + Uber hybrid takes ({result.hybridTotalMinutes} min). No Uber needed.
+                The full transit route takes <strong>{result.fullTransitDurationMinutes} min</strong>.{' '}
+                {result.hybridTotalMinutes != null && result.hybridTotalMinutes < result.fullTransitDurationMinutes
+                  ? <>The best transit + Uber hybrid takes <strong>{result.hybridTotalMinutes} min</strong> but doesn't save enough time to be worthwhile.</>
+                  : <>Adding an Uber would be slower or no better. No Uber needed.</>
+                }
               </div>
             </div>
           </div>

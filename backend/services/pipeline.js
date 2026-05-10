@@ -5,7 +5,7 @@ const { getTransitTime, getFullTransitRoute } = require('./google');
 
 const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
 const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
-const MAX_CANDIDATES = 10; // cap on Google Directions calls after OSRM filter
+const MAX_CANDIDATES = 30; // cap on Google Directions calls after OSRM filter
 
 async function runPipeline({ origin, destination, budget, departureTime }) {
   // Step 1: Radius calculation
@@ -38,6 +38,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
     })
   );
 
+  fareResults.filter(r => r.status === 'rejected').forEach(r => console.error('[pipeline] fare filter rejected:', r.reason?.message));
   const survivingStops = fareResults
     .filter((r) => r.status === 'fulfilled' && r.value !== null)
     .map((r) => r.value);
@@ -64,6 +65,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
     })
   );
 
+  transitResults.filter(r => r.status === 'rejected').forEach(r => console.error('[pipeline] transit validation rejected:', r.reason?.message));
   const validatedStops = transitResults
     .filter((r) => r.status === 'fulfilled')
     .map((r) => r.value);
@@ -87,6 +89,10 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
 
   // If no stop clears the savings threshold, full transit wins
   if (worthwhileStops.length === 0) {
+    const depUnix = Math.floor(new Date(departureTime).getTime() / 1000);
+    const bestHybridMinutes = baselineArrivalUnix && validatedStops.length > 0
+      ? Math.round((Math.min(...validatedStops.map(s => s.transitArrivalUnix + Math.ceil(s.uberDurationMin) * 60)) - depUnix) / 60)
+      : null;
     return {
       transitFaster: true,
       fullTransitDurationMinutes: baselineTransit.durationMin,
@@ -94,9 +100,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
       fullTransitArrivalTime: baselineTransit.arrivalTime,
       fullTransitSteps: baselineTransit.steps,
       fullTransitEncodedPolyline: baselineTransit.encodedPolyline,
-      hybridTotalMinutes: validatedStops.length > 0
-        ? Math.min(...validatedStops.map(s => s.transitDurationMin + Math.ceil(s.uberDurationMin)))
-        : null,
+      hybridTotalMinutes: bestHybridMinutes,
     };
   }
 
@@ -112,6 +116,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
 
   // Compare arrival times using Unix timestamps (not durations)
   if (baselineArrivalUnix && baselineArrivalUnix <= hybridArrivalUnix) {
+    const depUnix = Math.floor(new Date(departureTime).getTime() / 1000);
     return {
       transitFaster: true,
       fullTransitDurationMinutes: baselineTransit.durationMin,
@@ -119,7 +124,7 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
       fullTransitArrivalTime: baselineTransit.arrivalTime,
       fullTransitSteps: baselineTransit.steps,
       fullTransitEncodedPolyline: baselineTransit.encodedPolyline,
-      hybridTotalMinutes: hybridTotal,
+      hybridTotalMinutes: Math.round((hybridArrivalUnix - depUnix) / 60),
     };
   }
 

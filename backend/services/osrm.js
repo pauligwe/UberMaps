@@ -55,6 +55,7 @@ async function getRoadDistanceAndDuration(fromLat, fromLng, toLat, toLng) {
   };
 
   distanceCache.set(cacheKey, result);
+  if (distanceCache.size > 5000) distanceCache.delete(distanceCache.keys().next().value);
   return result;
 }
 
