@@ -3,6 +3,9 @@ const { fetchStops } = require('./overpass');
 const { getRoadDistanceAndDuration, getOsrmPolyline } = require('./osrm');
 const { getTransitTime, getFullTransitRoute } = require('./google');
 
+const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
+const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
+
 async function runPipeline({ origin, destination, budget, departureTime }) {
   // Step 1: Radius calculation
   const radiusKm = maxRadiusKm(budget);
@@ -18,6 +21,8 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   if (stops.length === 0) throw new Error('No transit stops found near destination within budget radius');
   const stopsConsidered = stops.length;
 
+  const baselineArrivalUnix = baselineTransit?.arrivalUnix ?? null;
+
   // Step 3: Fare filter — parallel OSRM calls
   const fareResults = await Promise.allSettled(
     stops.map(async (stop) => {
@@ -26,6 +31,8 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
       );
       const fare = estimateFare(distanceKm, durationMin, departureTime);
       if (fare > budget) return null;
+      // Skip stops too close to destination — walkable distance, no point calling an Uber
+      if (distanceKm < MIN_UBER_DISTANCE_KM) return null;
       return { ...stop, estimatedFare: fare, uberDurationMin: durationMin };
     })
   );
@@ -58,12 +65,34 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   }
 
   // Step 5: Pick winner — earliest arrival at destination (transit arrival + uber drive time)
+  // Also require the hybrid to arrive meaningfully earlier than full transit baseline
   validatedStops.sort((a, b) =>
     (a.transitArrivalUnix + Math.ceil(a.uberDurationMin) * 60) -
     (b.transitArrivalUnix + Math.ceil(b.uberDurationMin) * 60)
   );
-  const winner = validatedStops[0];
 
+  const worthwhileStops = baselineArrivalUnix
+    ? validatedStops.filter(s =>
+        baselineArrivalUnix - (s.transitArrivalUnix + Math.ceil(s.uberDurationMin) * 60) >= MIN_TIME_SAVING_SEC
+      )
+    : validatedStops;
+
+  // If no stop clears the savings threshold, full transit wins
+  if (worthwhileStops.length === 0) {
+    return {
+      transitFaster: true,
+      fullTransitDurationMinutes: baselineTransit.durationMin,
+      fullTransitDepartureTime: baselineTransit.departureTime,
+      fullTransitArrivalTime: baselineTransit.arrivalTime,
+      fullTransitSteps: baselineTransit.steps,
+      fullTransitEncodedPolyline: baselineTransit.encodedPolyline,
+      hybridTotalMinutes: validatedStops[0]
+        ? validatedStops[0].transitDurationMin + Math.ceil(validatedStops[0].uberDurationMin)
+        : null,
+    };
+  }
+
+  const winner = worthwhileStops[0];
   const uberDurationMinutes = Math.ceil(winner.uberDurationMin);
   const hybridTotal = winner.transitDurationMin + uberDurationMinutes;
 
@@ -74,7 +103,6 @@ async function runPipeline({ origin, destination, budget, departureTime }) {
   });
 
   // Compare arrival times using Unix timestamps (not durations)
-  const baselineArrivalUnix = baselineTransit?.arrivalUnix ?? null;
   if (baselineArrivalUnix && baselineArrivalUnix <= hybridArrivalUnix) {
     return {
       transitFaster: true,
