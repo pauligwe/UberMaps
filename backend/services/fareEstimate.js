@@ -60,4 +60,4 @@ function maxRadiusKm(budget, city = DEFAULT_CITY) {
   return maxRoadKm / ROAD_TO_STRAIGHT_LINE_FACTOR;
 }
 
-module.exports = { estimateFare, estimateFareFromCoords, maxRadiusKm, getSurgeMultiplier };
+module.exports = { estimateFare, estimateFareFromCoords, haversineKm, maxRadiusKm, getSurgeMultiplier };

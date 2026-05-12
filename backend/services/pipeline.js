@@ -1,4 +1,4 @@
-const { maxRadiusKm, estimateFareFromCoords } = require('./fareEstimate');
+const { maxRadiusKm, estimateFareFromCoords, haversineKm } = require('./fareEstimate');
 const { fetchStops } = require('./places');
 const { getOsrmPolyline } = require('./osrm');
 const { getTransitTime, getFullTransitRoute } = require('./google');
@@ -51,11 +51,17 @@ async function _runPipeline({ origin, destination, budget, departureTime, city =
   }
   const stopsAfterFareFilter = survivingStops.length;
 
-  // Sort by uber_duration_min descending — stops with a longer Uber leg are farther from the
-  // destination, meaning more of the journey is covered by Uber (faster than transit).
-  // Cap at MAX_CANDIDATES before the expensive Google Directions calls.
+  // Prefer stops on the direct origin→destination path with a long Uber leg.
+  // Detour ratio = (origin→stop + stop→dest) / origin→dest — 1.0 means perfectly on-path.
+  // Sort by detour ratio ascending, break ties by longest Uber leg.
+  const originToDestKm = haversineKm(origin.lat, origin.lng, destination.lat, destination.lng);
   const candidates = survivingStops
-    .sort((a, b) => b.uberDurationMin - a.uberDurationMin)
+    .sort((a, b) => {
+      const detourA = (haversineKm(origin.lat, origin.lng, a.lat, a.lng) + haversineKm(a.lat, a.lng, destination.lat, destination.lng)) / originToDestKm;
+      const detourB = (haversineKm(origin.lat, origin.lng, b.lat, b.lng) + haversineKm(b.lat, b.lng, destination.lat, destination.lng)) / originToDestKm;
+      if (Math.abs(detourA - detourB) > 0.1) return detourA - detourB;
+      return b.uberDurationMin - a.uberDurationMin;
+    })
     .slice(0, MAX_CANDIDATES);
 
   // Step 4: Transit validation — parallel Google Directions calls
