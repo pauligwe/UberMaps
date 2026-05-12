@@ -97,7 +97,7 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
 
   useEffect(() => {
     if (defaultValue) {
-      setText(defaultValue.label)
+      setText('Your Location')
       setConfirmed(defaultValue)
       onSelect({ lat: defaultValue.lat, lng: defaultValue.lng, label: defaultValue.label })
     }
@@ -138,13 +138,19 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   }
 
   function handlePick(s) {
-    setText(s.label)
+    setText(s.isUserLocation ? 'Your Location' : s.label)
     setConfirmed(s)
     onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
   }
 
+  function handleFocus() {
+    if (suggestions.length > 0) setOpen(true)
+    else if (!text) setOpen(true)
+  }
+
+  const showYourLocation = open && !text && userLocation
   const showDropdown = open && suggestions.length > 0
 
   return (
@@ -157,11 +163,25 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
           placeholder={placeholder}
           value={text}
           onChange={handleChange}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={handleFocus}
           autoComplete="off"
           className={confirmed ? 'input-confirmed' : ''}
           required
         />
+
+        {showYourLocation && (
+          <ul className="suggestions">
+            <li onMouseDown={() => handlePick({ ...userLocation, label: userLocation.label ?? 'Your Location', isUserLocation: true })}>
+              <span className="suggestion-pin">
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M6 0C3.24 0 1 2.24 1 5c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5zm0 6.5c-.83 0-1.5-.67-1.5-1.5S5.17 3.5 6 3.5 7.5 4.17 7.5 5 6.83 6.5 6 6.5z" fill="currentColor"/>
+                </svg>
+              </span>
+              <span className="suggestion-label">Your Location</span>
+            </li>
+          </ul>
+        )}
 
         {showDropdown && (
           <ul className="suggestions">
