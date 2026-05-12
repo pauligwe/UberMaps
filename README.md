@@ -5,8 +5,8 @@ Find the optimal point along your journey where you switch from public transit t
 ## How it works
 
 1. **Radius calculation** — converts your Uber budget to a max straight-line distance using city-specific fare rates
-2. **Stop discovery + baseline** — queries Overpass API for transit stops within that radius; simultaneously fetches a full-transit baseline route to compare against
-3. **Fare filter** — runs OSRM road-distance calculations in parallel to drop stops that would exceed budget or are walkable distance from the destination (<1.5 km)
+2. **Stop discovery + baseline** — queries Google Places API for transit stops within that radius; simultaneously fetches a full-transit baseline route to compare against
+3. **Fare filter** — runs OSRM road-distance calculations in parallel to drop stops that would exceed budget or are walkable distance from the destination (<0.5 km)
 4. **Transit validation** — calls Google Directions (transit mode) for up to 30 surviving candidates
 5. **Winner selection** — picks the hybrid route with the earliest arrival that beats full transit by ≥5 minutes
 6. **Result** — returns the handoff stop, Uber cost estimate, hybrid vs. full-transit comparison, and routes for the map
@@ -35,7 +35,7 @@ Fri/Sat late night   = 2.0×  (Fri 10pm–Sat 3am, Sat 10pm–Sun 3am)
 ## Prerequisites
 
 - Node.js 20+
-- A Google Maps API key with **Directions API** enabled
+- A Google Maps API key with **Directions API** and **Places API** enabled
 - A Mapbox token (public token, scoped to your domain)
 
 ## Setup
@@ -82,7 +82,7 @@ ubermaps/
 │   ├── services/
 │   │   ├── cities.js         # City configs: center, timezone, fare rates
 │   │   ├── fareEstimate.js   # Fare formula + surge + radius math (per-city)
-│   │   ├── overpass.js       # Transit stop discovery via Overpass API
+│   │   ├── places.js         # Transit stop discovery via Google Places API
 │   │   ├── osrm.js           # Road distance, duration, polyline via OSRM
 │   │   ├── google.js         # Transit time + full route via Google Directions
 │   │   └── pipeline.js       # Orchestrates the full algorithm (30s timeout)

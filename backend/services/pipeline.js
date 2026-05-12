@@ -1,5 +1,5 @@
 const { maxRadiusKm, estimateFareFromCoords } = require('./fareEstimate');
-const { fetchStops } = require('./overpass');
+const { fetchStops } = require('./places');
 const { getOsrmPolyline } = require('./osrm');
 const { getTransitTime, getFullTransitRoute } = require('./google');
 const { CITIES, DEFAULT_CITY } = require('./cities');
