@@ -16,7 +16,19 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "blob:"],
+      workerSrc: ["'self'", "blob:"],
+      imgSrc: ["'self'", "data:", "blob:", "*.mapbox.com"],
+      connectSrc: ["'self'", "*.mapbox.com", "events.mapbox.com"],
+      styleSrc: ["'self'", "https:", "'unsafe-inline'"],
+      fontSrc: ["'self'", "https:", "data:"],
+    },
+  },
+}));
 app.use(express.json());
 app.use((req, res, next) => {
   const start = Date.now();

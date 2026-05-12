@@ -33,10 +33,20 @@ const CITIES = {
   la:      { label: 'Los Angeles', center: [-118.2437, 34.0522], zoom: 11, placeholder: 'e.g. Hollywood Sign, LA' },
 }
 
+function nearestCity(lat, lng) {
+  let best = 'toronto', bestDist = Infinity
+  for (const [key, city] of Object.entries(CITIES)) {
+    const [cLng, cLat] = city.center
+    const d = Math.hypot(lat - cLat, lng - cLng)
+    if (d < bestDist) { bestDist = d; best = key }
+  }
+  return best
+}
+
 const suggestCache = new Map() // key -> { results, ts }
 const SUGGEST_CACHE_TTL = 60_000
 
-async function fetchSuggestions(query, token, userLocation, sessionToken, signal) {
+async function fetchSuggestions(query, token, userLocation, _sessionToken, signal) {
   if (!query || query.length < 2) return []
   const proximity = userLocation ? `${userLocation.lng},${userLocation.lat}` : null
   const cacheKey = `${query}|${proximity}`
@@ -44,8 +54,8 @@ async function fetchSuggestions(query, token, userLocation, sessionToken, signal
   if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) return cached.results
 
   const params = new URLSearchParams({
-    q: query,
     access_token: token,
+    autocomplete: true,
     limit: 5,
     language: 'en',
     types: 'address,poi,place,neighborhood',
@@ -55,34 +65,22 @@ async function fetchSuggestions(query, token, userLocation, sessionToken, signal
     if (userLocation.country) params.set('country', userLocation.country)
   }
   const res = await fetch(
-    `https://api.mapbox.com/search/searchbox/v1/suggest?${params}&session_token=${sessionToken}`,
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`,
     { signal }
   )
   const data = await res.json()
-  const suggestions = data.suggestions || []
-
-  // Retrieve full coordinates for each suggestion
-  const results = await Promise.all(
-    suggestions.map(async s => {
-      const r = await fetch(
-        `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapbox_id}?access_token=${token}&session_token=${sessionToken}`,
-        { signal }
-      )
-      const d = await r.json()
-      const feature = d.features?.[0]
-      if (!feature) return null
-      const [lng, lat] = feature.geometry.coordinates
-      return {
-        id: s.mapbox_id,
-        label: [s.name, s.place_formatted].filter(Boolean).join(', '),
-        lat,
-        lng,
-      }
-    })
-  )
-  const filtered = results.filter(Boolean)
-  suggestCache.set(cacheKey, { results: filtered, ts: Date.now() })
-  return filtered
+  const features = data.features || []
+  const results = features.map(f => {
+    const [lng, lat] = f.geometry.coordinates
+    return {
+      id: f.id,
+      label: f.place_name,
+      lat,
+      lng,
+    }
+  })
+  suggestCache.set(cacheKey, { results, ts: Date.now() })
+  return results
 }
 
 function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation }) {
@@ -92,7 +90,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   const [open, setOpen] = useState(false)
   const debounceRef = useRef(null)
   const abortRef = useRef(null)
-  const sessionTokenRef = useRef(crypto.randomUUID())
   const wrapperRef = useRef(null)
 
   useEffect(() => {
@@ -129,7 +126,7 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await fetchSuggestions(val, token, userLocation, sessionTokenRef.current, signal)
+        const results = await fetchSuggestions(val, token, userLocation, null, signal)
         setSuggestions(results)
       } catch (err) {
         if (err.name !== 'AbortError') console.error('fetchSuggestions error:', err)
@@ -143,7 +140,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
-    sessionTokenRef.current = crypto.randomUUID()
   }
 
   const showDropdown = open && suggestions.length > 0
@@ -290,6 +286,13 @@ export default function App() {
   const [tokenReady, setTokenReady] = useState(false)
   const [defaultOrigin, setDefaultOrigin] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
+
+  useEffect(() => {
+    if (!userLocation) return
+    const city = nearestCity(userLocation.lat, userLocation.lng)
+    setSelectedCity(city)
+    if (map.current) map.current.flyTo({ center: CITIES[city].center, zoom: CITIES[city].zoom })
+  }, [userLocation])
 
   // Mobile bottom sheet
   const sheetRef = useRef(null)
@@ -621,21 +624,6 @@ export default function App() {
 
       {/* ── Mobile top bar (inputs only, no header) ── */}
       <div className="mobile-top-bar">
-        <div className="city-pills">
-          {Object.entries(CITIES).map(([key, city]) => (
-            <button
-              key={key}
-              type="button"
-              className={`city-pill${selectedCity === key ? ' city-pill--active' : ''}`}
-              onClick={() => {
-                setSelectedCity(key)
-                if (map.current) map.current.flyTo({ center: city.center, zoom: city.zoom })
-              }}
-            >
-              {city.label}
-            </button>
-          ))}
-        </div>
         {tokenReady && (
           <>
             <LocationInput
@@ -650,7 +638,7 @@ export default function App() {
             <LocationInput
               id="destination-m"
               label="To"
-              placeholder={`e.g. destination in ${CITIES[selectedCity].label}`}
+              placeholder="e.g. destination"
               token={mapboxToken.current}
               onSelect={setDestination}
               userLocation={userLocation}
@@ -711,21 +699,6 @@ export default function App() {
             <img src="/logo.png" alt="" className="logo-img" />
             <h1 className="logo">UberMaps</h1>
           </div>
-          <div className="city-pills">
-            {Object.entries(CITIES).map(([key, city]) => (
-              <button
-                key={key}
-                type="button"
-                className={`city-pill${selectedCity === key ? ' city-pill--active' : ''}`}
-                onClick={() => {
-                  setSelectedCity(key)
-                  if (map.current) map.current.flyTo({ center: city.center, zoom: city.zoom })
-                }}
-              >
-                {city.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         <form className="route-form" onSubmit={handleSubmit}>
@@ -743,7 +716,7 @@ export default function App() {
               <LocationInput
                 id="destination"
                 label="To"
-                placeholder={`e.g. destination in ${CITIES[selectedCity].label}`}
+                placeholder="e.g. destination"
                 token={mapboxToken.current}
                 onSelect={setDestination}
                 userLocation={userLocation}
