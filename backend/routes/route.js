@@ -4,7 +4,7 @@ const { CITIES } = require('../services/cities');
 
 const router = express.Router();
 
-const USER_FACING_PHRASES = ['Budget is below', 'No transit stops', 'No stops found', 'minimum fare', 'Overpass timeout', 'rate limit'];
+const USER_FACING_PHRASES = ['Budget is below', 'No transit stops', 'No stops found', 'minimum fare', 'Overpass timeout', 'rate limit', 'Pipeline timed out'];
 
 router.post('/', async (req, res) => {
   const { origin, destination, budget, departureTime, city } = req.body;

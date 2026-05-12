@@ -8,7 +8,7 @@ const PIPELINE_TIMEOUT_MS = 30 * 1000;
 
 function pipelineTimeout(ms) {
   return new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Pipeline timed out — upstream services too slow')), ms)
+    setTimeout(() => reject(new Error('Pipeline timed out — sorry, we couldn\'t find a route. Please try again.')), ms)
   );
 }
 
