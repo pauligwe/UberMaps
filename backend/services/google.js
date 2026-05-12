@@ -53,7 +53,7 @@ async function callDirections(params) {
   try {
     response = await axios.get(DIRECTIONS_URL, { params, timeout: 15000 });
   } catch (err) {
-    throw new Error(`Google Directions request failed: ${err.message}`);
+    throw new Error('Google Directions unavailable');
   }
   return response.data;
 }

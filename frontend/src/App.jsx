@@ -80,6 +80,7 @@ async function fetchSuggestions(query, token, userLocation, _sessionToken, signa
     }
   })
   suggestCache.set(cacheKey, { results, ts: Date.now() })
+  if (suggestCache.size > 200) suggestCache.delete(suggestCache.keys().next().value)
   return results
 }
 
@@ -338,8 +339,10 @@ export default function App() {
         fetch('https://ipapi.co/json/')
           .then(r => r.json())
           .then(ip => {
-            if (ip.latitude && ip.longitude) {
-              setUserLocation(loc => loc ?? { lat: ip.latitude, lng: ip.longitude, country: ip.country_code?.toLowerCase() })
+            const lat = parseFloat(ip?.latitude)
+            const lng = parseFloat(ip?.longitude)
+            if (isFinite(lat) && isFinite(lng)) {
+              setUserLocation(loc => loc ?? { lat, lng, country: typeof ip.country_code === 'string' ? ip.country_code.toLowerCase() : undefined })
             }
           })
           .catch(() => {})

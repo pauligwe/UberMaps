@@ -1,5 +1,6 @@
 const express = require('express');
 const { runPipeline } = require('../services/pipeline');
+const { CITIES } = require('../services/cities');
 
 const router = express.Router();
 
@@ -30,6 +31,9 @@ router.post('/', async (req, res) => {
   }
   if (budget > 200) {
     return res.status(400).json({ error: 'budget must be $200 or less' });
+  }
+  if (city != null && !CITIES[city]) {
+    return res.status(400).json({ error: `city must be one of: ${Object.keys(CITIES).join(', ')}` });
   }
 
   try {
