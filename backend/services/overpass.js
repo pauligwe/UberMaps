@@ -34,7 +34,7 @@ function httpsPost(url, body) {
         }
       });
     });
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Overpass request timed out')); });
+    req.setTimeout(8000, () => { req.destroy(); reject(new Error('Overpass request timed out')); });
     req.on('error', reject);
     req.write(encoded);
     req.end();
@@ -51,23 +51,17 @@ async function fetchStops(lat, lng, radiusMeters) {
 out body;
 `.trim();
 
-  let data;
-  let lastErr;
-  for (const mirror of OVERPASS_MIRRORS) {
-    try {
-      data = await httpsPost(mirror, query);
-      break;
-    } catch (err) {
-      console.error(`[overpass] ${mirror} failed: HTTP ${err.status ?? 'ERR'}: ${err.message}`);
-      lastErr = err;
-    }
-  }
-  if (!data) {
-    if (lastErr?.status === 429 || lastErr?.status === 504) {
-      throw new Error('Overpass timeout or rate limit, try again shortly');
-    }
-    throw new Error(`Overpass request failed: ${lastErr?.message}`);
-  }
+  // Race all mirrors simultaneously — use whichever responds first
+  const data = await Promise.any(
+    OVERPASS_MIRRORS.map(mirror =>
+      httpsPost(mirror, query).catch(err => {
+        console.error(`[overpass] ${mirror} failed: ${err.message}`);
+        throw err;
+      })
+    )
+  ).catch(() => {
+    throw new Error('All Overpass mirrors are unavailable, try again shortly');
+  });
 
   const elements = data.elements || [];
 
