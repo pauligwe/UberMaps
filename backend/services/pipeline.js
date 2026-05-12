@@ -1,6 +1,6 @@
-const { maxRadiusKm, estimateFare } = require('./fareEstimate');
+const { maxRadiusKm, estimateFareFromCoords } = require('./fareEstimate');
 const { fetchStops } = require('./overpass');
-const { getRoadDistanceAndDuration, getOsrmPolyline } = require('./osrm');
+const { getOsrmPolyline } = require('./osrm');
 const { getTransitTime, getFullTransitRoute } = require('./google');
 const { CITIES, DEFAULT_CITY } = require('./cities');
 
@@ -34,24 +34,17 @@ async function _runPipeline({ origin, destination, budget, departureTime, city =
 
   const baselineArrivalUnix = baselineTransit?.arrivalUnix ?? null;
 
-  // Step 3: Fare filter — parallel OSRM calls
-  const fareResults = await Promise.allSettled(
-    stops.map(async (stop) => {
-      const { distanceKm, durationMin } = await getRoadDistanceAndDuration(
-        stop.lat, stop.lng, destination.lat, destination.lng
-      );
-      const fare = estimateFare(distanceKm, durationMin, departureTime, city);
-      if (fare > budget) return null;
-      // Skip stops too close to destination — walkable distance, no point calling an Uber
-      if (distanceKm < MIN_UBER_DISTANCE_KM) return null;
-      return { ...stop, estimatedFare: fare, uberDurationMin: durationMin };
-    })
-  );
+  // Step 3: Fare filter — pure math, no network calls
+  const fareResults = stops.map((stop) => {
+    const { fare, roadKm, durationMin } = estimateFareFromCoords(
+      stop.lat, stop.lng, destination.lat, destination.lng, departureTime, city
+    );
+    if (fare > budget) return null;
+    if (roadKm < MIN_UBER_DISTANCE_KM) return null;
+    return { ...stop, estimatedFare: fare, uberDurationMin: durationMin };
+  });
 
-  fareResults.filter(r => r.status === 'rejected').forEach(r => console.error('[pipeline] fare filter rejected:', r.reason?.message));
-  const survivingStops = fareResults
-    .filter((r) => r.status === 'fulfilled' && r.value !== null)
-    .map((r) => r.value);
+  const survivingStops = fareResults.filter(Boolean);
 
   if (survivingStops.length === 0) {
     throw new Error('No stops found within budget after fare calculation');

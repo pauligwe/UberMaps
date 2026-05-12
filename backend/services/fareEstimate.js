@@ -2,6 +2,23 @@ const { CITIES, DEFAULT_CITY } = require('./cities.js');
 
 // Road distance is ~1.4x straight-line; invert to get straight-line from road km
 const ROAD_TO_STRAIGHT_LINE_FACTOR = 1.4;
+const URBAN_SPEED_KMH = 30; // average urban Uber speed for duration estimate
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateFareFromCoords(lat1, lng1, lat2, lng2, departureTimeISO, city = DEFAULT_CITY) {
+  const straightKm = haversineKm(lat1, lng1, lat2, lng2);
+  const roadKm = straightKm * ROAD_TO_STRAIGHT_LINE_FACTOR;
+  const durationMin = (roadKm / URBAN_SPEED_KMH) * 60;
+  return { fare: estimateFare(roadKm, durationMin, departureTimeISO, city), roadKm, durationMin };
+}
 
 function getSurgeMultiplier(departureTimeISO, timezone = 'America/Toronto') {
   const d = new Date(departureTimeISO);
@@ -43,4 +60,4 @@ function maxRadiusKm(budget, city = DEFAULT_CITY) {
   return maxRoadKm / ROAD_TO_STRAIGHT_LINE_FACTOR;
 }
 
-module.exports = { estimateFare, maxRadiusKm, getSurgeMultiplier };
+module.exports = { estimateFare, estimateFareFromCoords, maxRadiusKm, getSurgeMultiplier };
