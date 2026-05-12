@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import './App.css'
 
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
 function decodePolyline(encoded) {
   const coords = []
   let index = 0, lat = 0, lng = 0
@@ -320,7 +322,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetch('/api/config')
+    fetch(`${API_BASE}/api/config`)
       .then(r => r.json())
       .then(cfg => {
         mapboxToken.current = cfg.mapboxToken
@@ -468,7 +470,7 @@ export default function App() {
     clearRoutes()
 
     try {
-      const res = await fetch('/api/route', {
+      const res = await fetch(`${API_BASE}/api/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime, city: selectedCity }),
