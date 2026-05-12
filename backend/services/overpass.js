@@ -1,7 +1,11 @@
 // Coordinate order: lat, lng (Overpass uses lat,lng in around filter)
 const https = require('https');
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
 
 function httpsPost(url, body) {
   return new Promise((resolve, reject) => {
@@ -48,14 +52,21 @@ out body;
 `.trim();
 
   let data;
-  try {
-    data = await httpsPost(OVERPASS_URL, query);
-  } catch (err) {
-    console.error(`[overpass] HTTP ${err.status ?? 'ERR'}: ${err.message}`);
-    if (err.status === 429 || err.status === 504) {
+  let lastErr;
+  for (const mirror of OVERPASS_MIRRORS) {
+    try {
+      data = await httpsPost(mirror, query);
+      break;
+    } catch (err) {
+      console.error(`[overpass] ${mirror} failed: HTTP ${err.status ?? 'ERR'}: ${err.message}`);
+      lastErr = err;
+    }
+  }
+  if (!data) {
+    if (lastErr?.status === 429 || lastErr?.status === 504) {
       throw new Error('Overpass timeout or rate limit, try again shortly');
     }
-    throw new Error(`Overpass request failed: ${err.message}`);
+    throw new Error(`Overpass request failed: ${lastErr?.message}`);
   }
 
   const elements = data.elements || [];

@@ -12,7 +12,7 @@ function pipelineTimeout(ms) {
   );
 }
 
-const MIN_UBER_DISTANCE_KM = 1.5;  // stops closer than this are walkable — skip
+const MIN_UBER_DISTANCE_KM = 0.5;  // stops closer than this are walkable — skip (road km)
 const MIN_TIME_SAVING_SEC = 5 * 60; // hybrid must arrive at least 5 min earlier than full transit
 const MAX_CANDIDATES = 30; // cap on Google Directions calls after OSRM filter
 

@@ -287,6 +287,12 @@ function StepList({ steps, departureTime, arrivalTime }) {
   )
 }
 
+function nowDatetimeLocal() {
+  const d = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function App() {
   const mapContainer = useRef(null)
   const map = useRef(null)
@@ -297,11 +303,7 @@ export default function App() {
   const [origin, setOrigin] = useState(null)       // { lat, lng } once confirmed
   const [destination, setDestination] = useState(null)
   const [budget, setBudget] = useState('20')
-  const [departureTime, setDepartureTime] = useState(() => {
-    const d = new Date()
-    const pad = n => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-  })
+  const [departureTime, setDepartureTime] = useState('now')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
@@ -493,7 +495,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime, city: selectedCity }),
+        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime: departureTime === 'now' ? new Date().toISOString() : departureTime, city: selectedCity }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Route calculation failed')
@@ -688,13 +690,29 @@ export default function App() {
           </div>
           <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
             <label htmlFor="departure-m">Departure</label>
-            <input
-              id="departure-m"
-              type="datetime-local"
-              value={departureTime}
-              onChange={e => setDepartureTime(e.target.value)}
-              required
-            />
+            {departureTime === 'now' ? (
+              <input
+                type="text"
+                readOnly
+                value="Now"
+                onClick={() => {
+                  setDepartureTime(nowDatetimeLocal())
+                }}
+                style={{ cursor: 'pointer' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input
+                  id="departure-m"
+                  type="datetime-local"
+                  value={departureTime}
+                  onChange={e => setDepartureTime(e.target.value)}
+                  required
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button type="button" onClick={() => setDepartureTime('now')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap', padding: '0 2px' }}>Now</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -767,13 +785,29 @@ export default function App() {
 
           <div className="form-group">
             <label htmlFor="departureTime">Departure</label>
-            <input
-              id="departureTime"
-              type="datetime-local"
-              value={departureTime}
-              onChange={e => setDepartureTime(e.target.value)}
-              required
-            />
+            {departureTime === 'now' ? (
+              <input
+                type="text"
+                readOnly
+                value="Now"
+                onClick={() => {
+                  setDepartureTime(nowDatetimeLocal())
+                }}
+                style={{ cursor: 'pointer' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input
+                  id="departureTime"
+                  type="datetime-local"
+                  value={departureTime}
+                  onChange={e => setDepartureTime(e.target.value)}
+                  required
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button type="button" onClick={() => setDepartureTime('now')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.75rem', whiteSpace: 'nowrap', padding: '0 2px' }}>Now</button>
+              </div>
+            )}
           </div>
 
           <button type="submit" className="submit-btn" disabled={loading}>
