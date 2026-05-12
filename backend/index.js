@@ -11,7 +11,6 @@ if (!process.env.MAPBOX_TOKEN) {
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const path = require('path');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
@@ -65,13 +64,6 @@ const routeLimit = rateLimit({
 
 // API routes
 app.use('/api/route', routeLimit, require('./routes/route'));
-
-// Serve Vite-built frontend
-const frontendDist = path.join(__dirname, '../frontend/dist');
-app.use(express.static(frontendDist));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(frontendDist, 'index.html'));
-});
 
 // Global error handler — must have exactly 4 params for Express to recognize it
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
