@@ -86,23 +86,63 @@ async function fetchSuggestions(query, token, userLocation, _sessionToken, signa
   return results
 }
 
-function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation }) {
+function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation, mapRef }) {
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [confirmed, setConfirmed] = useState(null)
+  const [resolvedAddress, setResolvedAddress] = useState(null)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef(null)
   const abortRef = useRef(null)
   const wrapperRef = useRef(null)
+  const markerRef = useRef(null)
+
+  function removeMarker() {
+    if (markerRef.current) { markerRef.current.remove(); markerRef.current = null }
+  }
+
+  function placeMarker(lat, lng) {
+    if (!mapRef?.current) return
+    removeMarker()
+    const el = document.createElement('div')
+    el.className = 'location-pin-marker'
+    el.innerHTML = `<svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="#1a73e8"/><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.5"/></svg>`
+
+    markerRef.current = new mapboxgl.Marker({ element: el, draggable: true, anchor: 'bottom' })
+      .setLngLat([lng, lat])
+      .addTo(mapRef.current)
+
+    markerRef.current.on('dragend', async () => {
+      const { lng: newLng, lat: newLat } = markerRef.current.getLngLat()
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${newLng},${newLat}.json?access_token=${token}&limit=1`
+      try {
+        const res = await fetch(url)
+        const data = await res.json()
+        const newLabel = data.features?.[0]?.place_name ?? `${newLat.toFixed(5)}, ${newLng.toFixed(5)}`
+        setResolvedAddress(newLabel)
+        onSelect({ lat: newLat, lng: newLng, label: newLabel })
+      } catch {
+        onSelect({ lat: newLat, lng: newLng, label: `${newLat.toFixed(5)}, ${newLng.toFixed(5)}` })
+      }
+    })
+  }
 
   useEffect(() => {
     if (defaultValue) {
       setText('Your Location')
       setConfirmed(defaultValue)
+      setResolvedAddress(null) // GPS location doesn't need a confirmation chip
       onSelect({ lat: defaultValue.lat, lng: defaultValue.lng, label: defaultValue.label })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultValue?.label])
+
+  // Remove marker when this input is cleared
+  useEffect(() => {
+    if (!confirmed) { removeMarker(); setResolvedAddress(null) }
+  }, [confirmed])
+
+  useEffect(() => () => removeMarker(), [])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -140,9 +180,11 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   function handlePick(s) {
     setText(s.isUserLocation ? 'Your Location' : s.label)
     setConfirmed(s)
+    setResolvedAddress(s.isUserLocation ? null : s.label)
     onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
+    if (!s.isUserLocation) placeMarker(s.lat, s.lng)
   }
 
   function handleFocus() {
@@ -198,6 +240,15 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
           </ul>
         )}
       </div>
+      {resolvedAddress && (
+        <div className="resolved-address">
+          <svg width="10" height="12" viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 0C2.24 0 0 2.24 0 5c0 3.75 5 7 5 7s5-3.25 5-7c0-2.76-2.24-5-5-5zm0 6.5c-.83 0-1.5-.67-1.5-1.5S4.17 3.5 5 3.5 6.5 4.17 6.5 5 5.83 6.5 5 6.5z" fill="currentColor"/>
+          </svg>
+          <span>{resolvedAddress}</span>
+          <span className="resolved-drag-hint">drag pin to adjust</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -350,12 +401,17 @@ export default function App() {
         mapboxToken.current = cfg.mapboxToken
         mapboxgl.accessToken = cfg.mapboxToken
         setTokenReady(true)
+        if (!mapboxgl.supported()) {
+          setError('Your browser does not support WebGL, which is required for the map. Try enabling hardware acceleration in your browser settings.')
+          return
+        }
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/dark-v11',
           center: [-79.38, 43.65],
           zoom: 11,
           attributionControl: false,
+          failIfMajorPerformanceCaveat: false,
         })
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
 
@@ -661,6 +717,7 @@ export default function App() {
               onSelect={setOrigin}
               defaultValue={defaultOrigin}
               userLocation={userLocation}
+              mapRef={map}
             />
             <LocationInput
               id="destination-m"
@@ -669,6 +726,7 @@ export default function App() {
               token={mapboxToken.current}
               onSelect={setDestination}
               userLocation={userLocation}
+              mapRef={map}
             />
           </>
         )}
@@ -755,6 +813,7 @@ export default function App() {
                 onSelect={setOrigin}
                 defaultValue={defaultOrigin}
                 userLocation={userLocation}
+                mapRef={map}
               />
               <LocationInput
                 id="destination"
@@ -763,6 +822,7 @@ export default function App() {
                 token={mapboxToken.current}
                 onSelect={setDestination}
                 userLocation={userLocation}
+                mapRef={map}
               />
             </>
           )}
