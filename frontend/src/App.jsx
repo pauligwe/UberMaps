@@ -90,7 +90,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [confirmed, setConfirmed] = useState(null)
-  const [resolvedAddress, setResolvedAddress] = useState(null)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef(null)
   const abortRef = useRef(null)
@@ -121,7 +120,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
         const data = await res.json()
         const newLabel = data.features?.[0]?.place_name ?? `${newLat.toFixed(5)}, ${newLng.toFixed(5)}`
         setText(newLabel)
-        setResolvedAddress(newLabel)
         onSelect({ lat: newLat, lng: newLng, label: newLabel })
       } catch {
         const fallback = `${newLat.toFixed(5)}, ${newLng.toFixed(5)}`
@@ -135,7 +133,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     if (defaultValue) {
       setText('Your Location')
       setConfirmed(defaultValue)
-      setResolvedAddress(null) // GPS location doesn't need a confirmation chip
       onSelect({ lat: defaultValue.lat, lng: defaultValue.lng, label: defaultValue.label })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,7 +140,7 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
 
   // Remove marker when this input is cleared
   useEffect(() => {
-    if (!confirmed) { removeMarker(); setResolvedAddress(null) }
+    if (!confirmed) removeMarker()
   }, [confirmed])
 
   useEffect(() => () => removeMarker(), [])
@@ -184,7 +181,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
   function handlePick(s) {
     setText(s.isUserLocation ? 'Your Location' : s.label)
     setConfirmed(s)
-    setResolvedAddress(s.isUserLocation ? null : s.label)
     onSelect({ lat: s.lat, lng: s.lng, label: s.label })
     setSuggestions([])
     setOpen(false)
@@ -244,15 +240,6 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
           </ul>
         )}
       </div>
-      {resolvedAddress && (
-        <div className="resolved-address">
-          <svg width="10" height="12" viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M5 0C2.24 0 0 2.24 0 5c0 3.75 5 7 5 7s5-3.25 5-7c0-2.76-2.24-5-5-5zm0 6.5c-.83 0-1.5-.67-1.5-1.5S4.17 3.5 5 3.5 6.5 4.17 6.5 5 5.83 6.5 5 6.5z" fill="currentColor"/>
-          </svg>
-          <span>{resolvedAddress}</span>
-          <span className="resolved-drag-hint">drag pin to adjust</span>
-        </div>
-      )}
     </div>
   )
 }
