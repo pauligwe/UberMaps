@@ -557,7 +557,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime: departureTime === 'now' ? new Date().toISOString() : departureTime, city: selectedCity }),
+        body: JSON.stringify({ origin, destination, budget: parseFloat(budget), departureTime: departureTime === 'now' ? new Date().toISOString() : new Date(departureTime + ':00').toISOString(), city: selectedCity }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Route calculation failed')
