@@ -86,7 +86,7 @@ async function fetchSuggestions(query, token, userLocation, _sessionToken, signa
   return results
 }
 
-function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation, mapRef }) {
+function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, userLocation, mapRef, isDestination }) {
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [confirmed, setConfirmed] = useState(null)
@@ -106,7 +106,8 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
     removeMarker()
     const el = document.createElement('div')
     el.className = 'location-pin-marker'
-    el.innerHTML = `<svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="#1a73e8"/><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.5"/></svg>`
+    const pinColor = isDestination ? '#e8341a' : '#1a73e8'
+    el.innerHTML = `<svg width="24" height="28" viewBox="0 0 24 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="${pinColor}"/><path d="M12 0C7.58 0 4 3.58 4 8c0 6 8 20 8 20s8-14 8-20c0-4.42-3.58-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="0.5"/></svg>`
 
     markerRef.current = new mapboxgl.Marker({ element: el, draggable: true, anchor: 'bottom' })
       .setLngLat([lng, lat])
@@ -119,10 +120,13 @@ function LocationInput({ id, label, placeholder, token, onSelect, defaultValue, 
         const res = await fetch(url)
         const data = await res.json()
         const newLabel = data.features?.[0]?.place_name ?? `${newLat.toFixed(5)}, ${newLng.toFixed(5)}`
+        setText(newLabel)
         setResolvedAddress(newLabel)
         onSelect({ lat: newLat, lng: newLng, label: newLabel })
       } catch {
-        onSelect({ lat: newLat, lng: newLng, label: `${newLat.toFixed(5)}, ${newLng.toFixed(5)}` })
+        const fallback = `${newLat.toFixed(5)}, ${newLng.toFixed(5)}`
+        setText(fallback)
+        onSelect({ lat: newLat, lng: newLng, label: fallback })
       }
     })
   }
@@ -353,6 +357,21 @@ export default function App() {
   const [selectedCity, setSelectedCity] = useState('toronto')
   const [origin, setOrigin] = useState(null)       // { lat, lng } once confirmed
   const [destination, setDestination] = useState(null)
+
+  useEffect(() => {
+    if (!map.current) return
+    if (origin && destination) {
+      const bounds = new mapboxgl.LngLatBounds(
+        [origin.lng, origin.lat],
+        [destination.lng, destination.lat]
+      )
+      map.current.fitBounds(bounds, { padding: 100, maxZoom: 14 })
+    } else if (origin) {
+      map.current.flyTo({ center: [origin.lng, origin.lat], zoom: 14 })
+    } else if (destination) {
+      map.current.flyTo({ center: [destination.lng, destination.lat], zoom: 14 })
+    }
+  }, [origin, destination])
   const [budget, setBudget] = useState('20')
   const [departureTime, setDepartureTime] = useState('now')
   const [loading, setLoading] = useState(false)
@@ -727,6 +746,7 @@ export default function App() {
               onSelect={setDestination}
               userLocation={userLocation}
               mapRef={map}
+              isDestination
             />
           </>
         )}
@@ -823,6 +843,7 @@ export default function App() {
                 onSelect={setDestination}
                 userLocation={userLocation}
                 mapRef={map}
+                isDestination
               />
             </>
           )}
