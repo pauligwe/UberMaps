@@ -366,6 +366,7 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [showSteps, setShowSteps] = useState(false)
   const [tokenReady, setTokenReady] = useState(false)
+  const [coldStartWarning, setColdStartWarning] = useState(false)
   const [defaultOrigin, setDefaultOrigin] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
 
@@ -401,9 +402,12 @@ export default function App() {
   }
 
   useEffect(() => {
+    const coldStartTimer = setTimeout(() => setColdStartWarning(true), 4000)
     fetch(`${API_BASE}/api/config`)
       .then(r => r.json())
       .then(cfg => {
+        clearTimeout(coldStartTimer)
+        setColdStartWarning(false)
         mapboxToken.current = cfg.mapboxToken
         mapboxgl.accessToken = cfg.mapboxToken
         setTokenReady(true)
@@ -447,7 +451,11 @@ export default function App() {
           })
         }
       })
-      .catch(() => setError('Failed to load map configuration'))
+      .catch(() => {
+        clearTimeout(coldStartTimer)
+        setColdStartWarning(false)
+        setError('Failed to load map configuration')
+      })
   }, [])
 
   const activeLayerIds = useRef([])
@@ -710,6 +718,12 @@ export default function App() {
   return (
     <div className="app">
       <div ref={mapContainer} className="map-container" />
+
+      {coldStartWarning && (
+        <div className="cold-start-banner">
+          Connecting to server — this may take up to 30s on a cold start&hellip;
+        </div>
+      )}
 
       {/* ── Mobile top bar (inputs only, no header) ── */}
       <div className="mobile-top-bar">
