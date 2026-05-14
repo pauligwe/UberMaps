@@ -6,10 +6,11 @@ Find the optimal point along your journey where you switch from public transit t
 
 1. **Radius calculation** — converts your Uber budget to a max straight-line distance using city-specific fare rates
 2. **Stop discovery + baseline** — queries Google Places API for transit stops within that radius; simultaneously fetches a full-transit baseline route to compare against
-3. **Fare filter** — runs OSRM road-distance calculations in parallel to drop stops that would exceed budget or are walkable distance from the destination (<0.5 km)
-4. **Transit validation** — calls Google Directions (transit mode) for up to 30 surviving candidates
-5. **Winner selection** — picks the hybrid route with the earliest arrival that beats full transit by ≥5 minutes
-6. **Result** — returns the handoff stop, Uber cost estimate, hybrid vs. full-transit comparison, and routes for the map
+3. **Fare filter** — uses Haversine math (no network calls) to drop stops that would exceed budget or are walkable distance from the destination (<0.5 km)
+4. **Candidate ranking** — sorts surviving stops by detour ratio (how far off the direct path they are), breaking ties by longest Uber leg; top 30 advance
+5. **Transit validation** — calls Google Directions (transit mode) for up to 30 surviving candidates
+6. **Winner selection** — picks the hybrid route with the earliest arrival that beats full transit by ≥5 minutes
+7. **Result** — returns the handoff stop, Uber cost estimate, hybrid vs. full-transit comparison, and routes for the map
 
 If no hybrid beats full transit, the app shows the full-transit route with a note that public transit is faster.
 
@@ -81,14 +82,14 @@ ubermaps/
 │   ├── routes/route.js       # POST /api/route — input validation, pipeline dispatch
 │   ├── services/
 │   │   ├── cities.js         # City configs: center, timezone, fare rates
-│   │   ├── fareEstimate.js   # Fare formula + surge + radius math (per-city)
+│   │   ├── fareEstimate.js   # Fare formula + surge + radius math + Haversine (per-city)
 │   │   ├── places.js         # Transit stop discovery via Google Places API
-│   │   ├── osrm.js           # Road distance, duration, polyline via OSRM
+│   │   ├── osrm.js           # Polyline via OSRM (road-distance fare filter removed)
 │   │   ├── google.js         # Transit time + full route via Google Directions
 │   │   └── pipeline.js       # Orchestrates the full algorithm (30s timeout)
 │   └── .env.example
 └── frontend/
     └── src/
-        ├── App.jsx            # Map, city selector, location inputs, results panel
+        ├── App.jsx            # Map, city selector, location inputs, draggable pin, cold-start warning
         └── App.css            # Styles
 ```
